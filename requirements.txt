@@ -1,0 +1,8 @@
+Flask
+pymongo
+python-dotenv
+google-genai
+flask-cors
+Flask-Limiter
+pytest
+mongomock

@@ -1,0 +1,51 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Internal planning docs -- kept locally, not tracked in the repo
+# (README.md stays tracked as the public-facing doc)
+AI_Restaurant_Chat_Ordering_Agent_PRD.md
+ARCHITECTURE.md
+CHECKLIST.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Linters / type checkers
+.mypy_cache/
+.ruff_cache/
+
+# Node (only relevant if JS tooling is ever added locally)
+node_modules/
+
+# Logs
+*.log
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

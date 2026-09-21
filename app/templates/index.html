@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ restaurant_name }} — Order by Chat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-logo" aria-hidden="true">🍽</span>
+        <span class="brand-name">{{ restaurant_name }}</span>
+      </div>
+      <button id="cart-toggle" class="cart-toggle" type="button" aria-label="View your order">
+        <span aria-hidden="true">🛒</span>
+        <span id="cart-count" class="cart-count" hidden>0</span>
+      </button>
+    </header>
+
+    <section id="hero">
+      <h1>Welcome to {{ restaurant_name }}</h1>
+      <p>Delicious food, simply ordered.</p>
+    </section>
+
+    <main id="chat-panel">
+      <div id="chat-log" aria-live="polite"></div>
+
+      <div id="typing-indicator" class="typing-indicator" hidden>
+        <span class="avatar" aria-hidden="true">🤖</span>
+        <span class="dots"><i></i><i></i><i></i></span>
+      </div>
+
+      <div id="quick-actions" class="quick-actions">
+        <button type="button" class="quick-action" data-action="view-menu">View Menu</button>
+      </div>
+
+      <form id="chat-form" autocomplete="off">
+        <input id="chat-input" type="text" placeholder="Type your message..." aria-label="Message" />
+        <button type="submit" class="send-button" aria-label="Send message">➤</button>
+      </form>
+    </main>
+  </div>
+
+  <div id="cart-backdrop" class="cart-backdrop" hidden></div>
+  <aside id="cart-panel" class="cart-panel" hidden aria-label="Your order">
+    <div class="cart-panel-header">
+      <h2>Your Order</h2>
+      <button id="cart-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div id="cart-items" class="cart-items"></div>
+    <div class="cart-notes" id="cart-notes" hidden></div>
+    <div class="cart-total-row">
+      <span>Total</span>
+      <span id="cart-total">₹0</span>
+    </div>
+  </aside>
+
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>
