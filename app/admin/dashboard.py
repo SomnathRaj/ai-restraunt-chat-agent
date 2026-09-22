@@ -29,6 +29,6 @@ def dashboard():
         end_input=request.args.get("end", ""),
         order_stats=order_stats,
         customer_count=dashboard_service.get_customer_count(start, end),
-        availability_counts=dashboard_service.get_menu_availability_counts(),
         diet_counts=dashboard_service.get_veg_nonveg_counts(),
+        ordered_diet_counts=dashboard_service.get_ordered_veg_nonveg_counts(start, end),
     )

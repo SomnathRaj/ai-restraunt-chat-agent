@@ -98,15 +98,6 @@ def get_customer_count(start: datetime, end: datetime) -> int:
     return db.chat_sessions.count_documents({"created_at": {"$gte": start, "$lt": end}})
 
 
-def get_menu_availability_counts() -> dict:
-    """Current (not date-filtered) counts of active menu items by availability."""
-    db = get_db()
-    return {
-        "available": db.menu.count_documents({"active": True, "availability": True}),
-        "unavailable": db.menu.count_documents({"active": True, "availability": False}),
-    }
-
-
 def get_veg_nonveg_counts() -> dict:
     """Current (not date-filtered) counts of active menu items by diet type."""
     db = get_db()
@@ -114,3 +105,38 @@ def get_veg_nonveg_counts() -> dict:
         "veg": db.menu.count_documents({"active": True, "is_veg": True}),
         "nonveg": db.menu.count_documents({"active": True, "is_veg": False}),
     }
+
+
+def get_ordered_veg_nonveg_counts(start: datetime, end: datetime) -> dict:
+    """Veg/non-veg split of item *quantities actually ordered* in [start, end)
+    -- unlike get_veg_nonveg_counts() above (the menu's current composition),
+    this reflects real customer demand for the selected range, matching the
+    same [start, end) window as get_order_analytics() (all statuses, same
+    as "Total Orders"/"Total Sales" above it).
+
+    Orders don't snapshot is_veg on their own item lines (only name/price/
+    quantity), so each line's diet type is looked up from the *current*
+    menu doc by item_id. An item since deleted from the menu can't be
+    classified and is silently excluded -- inventing a bucket for it would
+    be misleading, and this is a lightweight dashboard summary, not an
+    audit trail.
+    """
+    db = get_db()
+    orders = list(db.orders.find({"created_at": {"$gte": start, "$lt": end}}, {"_id": 0, "items": 1}))
+
+    item_ids = {line["item_id"] for order in orders for line in order.get("items", [])}
+    is_veg_by_item_id = {
+        doc["item_id"]: doc["is_veg"]
+        for doc in db.menu.find({"item_id": {"$in": list(item_ids)}}, {"_id": 0, "item_id": 1, "is_veg": 1})
+    }
+
+    veg = nonveg = 0
+    for order in orders:
+        for line in order.get("items", []):
+            is_veg = is_veg_by_item_id.get(line["item_id"])
+            if is_veg is True:
+                veg += line["quantity"]
+            elif is_veg is False:
+                nonveg += line["quantity"]
+
+    return {"veg": veg, "nonveg": nonveg}

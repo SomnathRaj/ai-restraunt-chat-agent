@@ -1,15 +1,31 @@
 import logging
+import os
+from datetime import datetime, timezone
 
 from flask import Flask, render_template
 
 from app.extensions import cors, csrf, limiter
 from app.utils.errors import register_error_handlers
+from app.utils.number_to_words import amount_in_words
 from config import Config
 
 
 def create_app(config_class=Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    # The admin portal's login is Flask's signed session cookie -- its only
+    # real protection is SECRET_KEY. Config.py's fallback ("dev-only-insecure-key")
+    # is committed to this repo, so it must never silently become the actual
+    # signing key in production (that would let anyone forge an admin session).
+    # Gated on FLASK_ENV rather than always-on so local dev/tests, which never
+    # set FLASK_SECRET_KEY, keep booting without it.
+    if app.config["FLASK_ENV"] == "production" and not os.environ.get("FLASK_SECRET_KEY"):
+        raise RuntimeError(
+            "FLASK_SECRET_KEY must be set when FLASK_ENV=production -- refusing "
+            "to start with the public, committed dev fallback as the real "
+            "admin-session signing key."
+        )
 
     logging.basicConfig(level=logging.INFO)
 
@@ -57,5 +73,11 @@ def create_app(config_class=Config) -> Flask:
         if value is None:
             return "—"
         return value.strftime("%Y-%m-%d %H:%M")
+
+    app.add_template_filter(amount_in_words, "amount_in_words")
+
+    @app.context_processor
+    def inject_current_year():
+        return {"current_year": datetime.now(timezone.utc).year}
 
     return app

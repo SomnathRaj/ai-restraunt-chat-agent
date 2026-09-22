@@ -21,6 +21,10 @@ class TestConfig(Config):
     # session to fetch a token from -- CSRF itself is Flask-WTF's concern,
     # not app logic, so it's off for the suite and left on in real config.
     WTF_CSRF_ENABLED = False
+    # Explicitly unset (not just inherited) -- otherwise a real UPI_ID set in
+    # a developer's own .env leaks into the "not configured" test cases via
+    # Config's os.environ.get() fallback, since load_dotenv() runs for real.
+    UPI_ID = None
 
 
 @pytest.fixture

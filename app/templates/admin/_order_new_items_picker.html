@@ -1,0 +1,62 @@
+{# Used only by order_new.html -- unlike _order_items_editor.html (used by
+   order_detail.html, where "Add" merges server-side on the page's single
+   Save submit), this order doesn't exist yet: items are picked one at a
+   time and accumulated entirely client-side (JS) into hidden
+   qty__<id>/note__<id> inputs, then the whole order is created in one shot
+   when "Create order" is submitted. #}
+{% from "admin/_icons.html" import icon_delete %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Price</th>
+      <th>Quantity</th>
+      <th>Cooking instructions</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="new-order-items-tbody">
+    {% for item_id, current in current_by_id.items() %}
+    {% set item = menu_by_id[item_id] %}
+    <tr data-item-id="{{ item_id }}">
+      <td>
+        <span class="diet-dot {{ 'veg' if item.is_veg else 'nonveg' }}" aria-hidden="true"></span>
+        {{ item.name }}
+      </td>
+      <td>₹{{ "%.2f"|format(item.price) }}</td>
+      <td>
+        <input type="number" min="0" name="qty__{{ item_id }}" value="{{ current.quantity }}" class="admin-qty-input" />
+      </td>
+      <td>
+        <input type="text" name="note__{{ item_id }}" value="{{ current.special_instructions or '' }}"
+               placeholder="e.g. extra spicy" />
+      </td>
+      <td>
+        <button type="button" class="admin-icon-button admin-icon-button-danger new-order-remove-item"
+                title="Remove {{ item.name }}" aria-label="Remove {{ item.name }}">{{ icon_delete() }}</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tbody id="new-order-items-empty-body" {% if current_by_id %}style="display: none;"{% endif %}>
+    <tr>
+      <td colspan="5" class="admin-empty">No items added yet.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="admin-add-item-row">
+  <label for="add_item_id">Add item</label>
+  <select id="add_item_id">
+    <option value="">— choose an item —</option>
+    {% for item in addable_menu_items %}
+    <option value="{{ item.item_id }}" data-data='{"is_veg":{{ "true" if item.is_veg else "false" }}}'>{{ item.name }} (₹{{ "%.2f"|format(item.price) }})</option>
+    {% endfor %}
+  </select>
+  <input type="number" min="1" value="1" id="add_item_qty" class="admin-qty-input" aria-label="Quantity to add" />
+  <input type="text" id="add_item_note" placeholder="e.g. extra spicy" aria-label="Cooking instructions for the added item" />
+  <button type="button" id="add_item_button" class="admin-button">Add</button>
+</div>
+
+<template id="icon-delete-template">{{ icon_delete() }}</template>
+<script id="menu-items-data" type="application/json">{{ menu_items_json | tojson }}</script>

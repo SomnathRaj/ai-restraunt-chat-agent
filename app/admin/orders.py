@@ -6,11 +6,12 @@ lookup (ARCHITECTURE.md Section 12) -- status/payment_status/items edits
 are admin-only additions on top of it, not a second implementation.
 """
 
-from flask import redirect, render_template, request, url_for
+from flask import current_app, redirect, render_template, request, url_for
 
 from app.admin import bp
 from app.services import menu_service, order_service
 from app.utils.errors import AppError
+from app.utils.upi_qr import build_upi_payment_uri, generate_qr_code_data_uri
 
 
 def _active_menu_items():
@@ -138,6 +139,25 @@ def order_kt(order_id):
     return render_template("admin/order_kt.html", order=order)
 
 
+@bp.get("/orders/<order_id>/invoice")
+def order_invoice(order_id):
+    """Printable customer invoice -- unlike the KT, this carries prices and
+    has no status side effect, so it's a plain GET with no companion POST."""
+    order = order_service.get_order_for_admin(order_id)
+
+    upi_id = current_app.config.get("UPI_ID")
+    upi_qr_data_uri = None
+    if upi_id:
+        upi_uri = build_upi_payment_uri(
+            upi_id, current_app.config["RESTAURANT_NAME"], order["total"], order["order_id"]
+        )
+        upi_qr_data_uri = generate_qr_code_data_uri(upi_uri)
+
+    return render_template(
+        "admin/order_invoice.html", order=order, upi_id=upi_id, upi_qr_data_uri=upi_qr_data_uri
+    )
+
+
 @bp.post("/orders/<order_id>/items")
 def order_update_items(order_id):
     order = order_service.get_order_for_admin(order_id)
@@ -159,14 +179,38 @@ def order_update_items(order_id):
     return redirect(url_for("admin.order_detail", order_id=order_id))
 
 
+def _render_order_new(menu_items, current_by_id, error, customer_name, mobile, status_code=200):
+    menu_by_id = {item["item_id"]: item for item in menu_items}
+    addable_menu_items = [item for item in menu_items if item["item_id"] not in current_by_id]
+    # Compact, JS-side lookup (item_id -> name/price/is_veg) for building an
+    # added-item row -- independent of the dropdown's current option list,
+    # so it still works for a row already-added before a validation error
+    # reload (and thus excluded from addable_menu_items above).
+    menu_items_json = [
+        {"item_id": item["item_id"], "name": item["name"], "price": item["price"], "is_veg": item["is_veg"]}
+        for item in menu_items
+    ]
+    return (
+        render_template(
+            "admin/order_new.html",
+            menu_by_id=menu_by_id,
+            current_by_id=current_by_id,
+            addable_menu_items=addable_menu_items,
+            menu_items_json=menu_items_json,
+            error=error,
+            customer_name=customer_name,
+            mobile=mobile,
+        ),
+        status_code,
+    )
+
+
 @bp.route("/orders/new", methods=["GET", "POST"])
 def order_new():
     menu_items = _active_menu_items()
 
     if request.method == "GET":
-        return render_template(
-            "admin/order_new.html", menu_items=menu_items, current_by_id={}, error=None, customer_name="", mobile=""
-        )
+        return _render_order_new(menu_items, current_by_id={}, error=None, customer_name="", mobile="")
 
     customer_name = request.form.get("customer_name", "")
     mobile = request.form.get("mobile", "")
@@ -175,16 +219,8 @@ def order_new():
         order = order_service.create_order_by_admin(items, customer_name, mobile)
     except AppError as err:
         current_by_id = {line["item_id"]: line for line in items}
-        return (
-            render_template(
-                "admin/order_new.html",
-                menu_items=menu_items,
-                current_by_id=current_by_id,
-                error=err.message,
-                customer_name=customer_name,
-                mobile=mobile,
-            ),
-            400,
+        return _render_order_new(
+            menu_items, current_by_id=current_by_id, error=err.message, customer_name=customer_name, mobile=mobile, status_code=400
         )
 
     return redirect(url_for("admin.order_detail", order_id=order["order_id"]))

@@ -387,6 +387,37 @@ def test_menu_list_edit_and_delete_are_icon_buttons_without_text_labels(admin_cl
     assert b'aria-label="Delete Chicken Biryani"' in response.data
 
 
+def test_menu_list_delete_confirm_message_is_not_interpolated_into_inline_js(admin_client, app):
+    """An item name containing a quote must never land inside an inline
+    event-handler JS string (onsubmit="...confirm('...NAME...')...") --
+    HTML-attribute escaping alone doesn't protect that context, since browsers
+    HTML-decode the attribute back to raw characters before parsing it as JS,
+    letting a crafted name break out of the string literal and execute
+    arbitrary JS in another admin's session. The name must only ever appear
+    in a plain data-* attribute, read by an external script, never spliced
+    directly into a JS string in the template."""
+    admin_client.post(
+        "/admin/menu/new",
+        data={
+            "name": "Naan'); alert(document.cookie); //",
+            "description": "",
+            "category": "Starter",
+            "price": "50",
+            "tags": "",
+        },
+    )
+    response = admin_client.get("/admin/menu")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    assert "onsubmit=\"return confirm('Permanently delete" not in body
+    assert 'class="admin-delete-form"' in body
+    assert "form.dataset.confirmMessage" in body
+    # The name is present only inside the data-* attribute (HTML-escaped by
+    # Jinja: ' becomes &#39;), never spliced into a JS string literal.
+    assert 'data-confirm-message="Permanently delete Naan&#39;); alert(document.cookie); //?' in body
+
+
 def test_admin_menu_new_form_renders_category_dropdown(admin_client):
     response = admin_client.get("/admin/menu/new")
     assert response.status_code == 200

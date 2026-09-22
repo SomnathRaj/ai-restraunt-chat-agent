@@ -28,7 +28,7 @@ def admin_client(app, client):
     return client
 
 
-def _insert_order(app, *, created_at, status="PENDING", total=100):
+def _insert_order(app, *, created_at, status="PENDING", total=100, items=None):
     with app.app_context():
         db = get_db()
         db.orders.insert_one(
@@ -36,7 +36,7 @@ def _insert_order(app, *, created_at, status="PENDING", total=100):
                 "order_id": f"ORD-TEST-{created_at.isoformat()}-{status}-{total}",
                 "customer_name": "Test",
                 "mobile": "9876543210",
-                "items": [],
+                "items": items or [],
                 "order_notes": None,
                 "subtotal": total,
                 "total": total,
@@ -143,7 +143,7 @@ def test_get_order_analytics_empty_range_is_zero_filled(app):
 
 
 # ---------------------------------------------------------------------------
-# get_customer_count / get_menu_availability_counts / get_veg_nonveg_counts
+# get_customer_count / get_veg_nonveg_counts
 # ---------------------------------------------------------------------------
 
 
@@ -171,21 +171,6 @@ def test_get_customer_count_only_counts_sessions_in_range(app):
     assert count == 2
 
 
-def test_get_menu_availability_counts_active_only(app):
-    with app.app_context():
-        db = get_db()
-        db.menu.insert_many(
-            [
-                {"item_id": "a", "name": "A", "category": "X", "price": 10, "availability": True, "is_veg": True, "active": True},
-                {"item_id": "b", "name": "B", "category": "X", "price": 10, "availability": False, "is_veg": True, "active": True},
-                {"item_id": "c", "name": "C", "category": "X", "price": 10, "availability": False, "is_veg": True, "active": False},
-            ]
-        )
-        counts = dashboard_service.get_menu_availability_counts()
-    # 'c' is inactive -- must not be counted either way.
-    assert counts == {"available": 1, "unavailable": 1}
-
-
 def test_get_veg_nonveg_counts_active_only(app):
     with app.app_context():
         db = get_db()
@@ -198,6 +183,55 @@ def test_get_veg_nonveg_counts_active_only(app):
         )
         counts = dashboard_service.get_veg_nonveg_counts()
     assert counts == {"veg": 1, "nonveg": 1}
+
+
+def test_get_ordered_veg_nonveg_counts_sums_quantities_in_range(app):
+    with app.app_context():
+        db = get_db()
+        db.menu.insert_many(
+            [
+                {"item_id": "v", "name": "V", "category": "X", "price": 10, "availability": True, "is_veg": True, "active": True},
+                {"item_id": "n", "name": "N", "category": "X", "price": 10, "availability": True, "is_veg": False, "active": True},
+            ]
+        )
+        db.orders.insert_many(
+            [
+                {
+                    "order_id": "ORD-1",
+                    "created_at": datetime(2026, 9, 5, tzinfo=timezone.utc),
+                    "status": "COMPLETED",
+                    "items": [
+                        {"item_id": "v", "name": "V", "quantity": 2, "price": 10, "total": 20},
+                        {"item_id": "n", "name": "N", "quantity": 3, "price": 10, "total": 30},
+                    ],
+                },
+                {
+                    "order_id": "ORD-2",
+                    "created_at": datetime(2026, 9, 6, tzinfo=timezone.utc),
+                    "status": "COMPLETED",
+                    "items": [{"item_id": "v", "name": "V", "quantity": 1, "price": 10, "total": 10}],
+                },
+                {
+                    # Outside the queried range -- must not be counted.
+                    "order_id": "ORD-3",
+                    "created_at": datetime(2026, 9, 20, tzinfo=timezone.utc),
+                    "status": "COMPLETED",
+                    "items": [{"item_id": "n", "name": "N", "quantity": 99, "price": 10, "total": 990}],
+                },
+                {
+                    # Item no longer on the menu -- can't be classified,
+                    # must not crash or land in either bucket.
+                    "order_id": "ORD-4",
+                    "created_at": datetime(2026, 9, 5, tzinfo=timezone.utc),
+                    "status": "COMPLETED",
+                    "items": [{"item_id": "deleted", "name": "Deleted", "quantity": 7, "price": 10, "total": 70}],
+                },
+            ]
+        )
+        counts = dashboard_service.get_ordered_veg_nonveg_counts(
+            datetime(2026, 9, 1, tzinfo=timezone.utc), datetime(2026, 9, 10, tzinfo=timezone.utc)
+        )
+    assert counts == {"veg": 3, "nonveg": 3}
 
 
 # ---------------------------------------------------------------------------
@@ -236,3 +270,78 @@ def test_dashboard_shows_correct_totals_for_selected_range(admin_client, app):
     response = admin_client.get("/admin/?range=custom&start=2026-09-01&end=2026-09-10")
     assert response.status_code == 200
     assert b"350.00" in response.data
+
+
+def test_dashboard_shows_veg_nonveg_items_ordered_pie_chart(admin_client, app):
+    with app.app_context():
+        db = get_db()
+        db.menu.insert_many(
+            [
+                {"item_id": "veg-item", "name": "Veg Item", "is_veg": True, "active": True, "availability": True, "price": 100},
+                {"item_id": "nonveg-item", "name": "Nonveg Item", "is_veg": False, "active": True, "availability": True, "price": 150},
+            ]
+        )
+    _insert_order(
+        app,
+        created_at=datetime(2026, 9, 5, tzinfo=timezone.utc),
+        status="COMPLETED",
+        total=550,
+        items=[
+            {"item_id": "veg-item", "name": "Veg Item", "quantity": 3, "price": 100, "total": 300},
+            {"item_id": "nonveg-item", "name": "Nonveg Item", "quantity": 1, "price": 150, "total": 150},
+        ],
+    )
+    # An item since removed from the menu must be silently excluded, not
+    # crash or land in either bucket.
+    _insert_order(
+        app,
+        created_at=datetime(2026, 9, 5, tzinfo=timezone.utc),
+        status="COMPLETED",
+        total=100,
+        items=[{"item_id": "deleted-item", "name": "Deleted Item", "quantity": 5, "price": 20, "total": 100}],
+    )
+
+    response = admin_client.get("/admin/?range=custom&start=2026-09-01&end=2026-09-10")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert "Veg / Non-veg — Items Ordered" in body
+    assert '<canvas id="orderedDietChart"' in body
+    assert "3 veg" in body
+    assert "1 non-veg" in body
+    assert "const orderedDietData = [3, 1];" in body
+
+
+def test_admin_sidebar_highlights_dashboard_as_active_and_others_as_inactive(admin_client):
+    """The current page's nav link gets class="active"; every other nav
+    link must not, regardless of which admin page is currently loaded."""
+    response = admin_client.get("/admin/")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    assert 'href="/admin/" class="active"' in body
+    assert 'href="/admin/menu" class="active"' not in body
+    assert 'href="/admin/faq" class="active"' not in body
+    assert 'href="/admin/orders" class="active"' not in body
+    assert 'href="/admin/sessions" class="active"' not in body
+
+
+def test_admin_sidebar_shows_restaurant_name_and_admin_panel_label(admin_client):
+    response = admin_client.get("/admin/")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert '<span class="admin-brand-name">' in body
+    assert "ADMIN PANEL" in body.upper()
+
+
+def test_admin_sidebar_shows_copyright_below_logout_button(admin_client):
+    response = admin_client.get("/admin/")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    logout_pos = body.index('class="admin-logout-button"')
+    copyright_pos = body.index('class="admin-copyright"')
+    assert logout_pos < copyright_pos
+
+    current_year = datetime.now(timezone.utc).year
+    assert f"&copy; {current_year}" in body
+    assert "All rights reserved." in body

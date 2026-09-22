@@ -71,14 +71,14 @@
     <canvas id="statusChart" height="220"></canvas>
   </div>
   <div class="admin-chart-card">
-    <h2>Menu Availability</h2>
-    <canvas id="availabilityChart" height="220"></canvas>
-    <p class="admin-chart-caption">{{ availability_counts.available }} available · {{ availability_counts.unavailable }} out of stock</p>
-  </div>
-  <div class="admin-chart-card">
     <h2>Veg / Non-veg</h2>
     <canvas id="dietChart" height="220"></canvas>
     <p class="admin-chart-caption">{{ diet_counts.veg }} veg · {{ diet_counts.nonveg }} non-veg</p>
+  </div>
+  <div class="admin-chart-card">
+    <h2>Veg / Non-veg — Items Ordered</h2>
+    <canvas id="orderedDietChart" height="220"></canvas>
+    <p class="admin-chart-caption">{{ ordered_diet_counts.veg }} veg · {{ ordered_diet_counts.nonveg }} non-veg</p>
   </div>
 </div>
 {% endblock %}
@@ -90,8 +90,8 @@
   const dailyTotals = {{ order_stats.daily_sales | map(attribute='total') | list | tojson }};
   const statusLabels = {{ order_stats.status_counts.keys() | list | tojson }};
   const statusData = {{ order_stats.status_counts.values() | list | tojson }};
-  const availabilityData = [{{ availability_counts.available }}, {{ availability_counts.unavailable }}];
   const dietData = [{{ diet_counts.veg }}, {{ diet_counts.nonveg }}];
+  const orderedDietData = [{{ ordered_diet_counts.veg }}, {{ ordered_diet_counts.nonveg }}];
 
   new Chart(document.getElementById("salesChart"), {
     type: "line",
@@ -114,27 +114,13 @@
   });
 
   new Chart(document.getElementById("statusChart"), {
-    type: "bar",
+    type: "pie",
     data: {
       labels: statusLabels,
       datasets: [{
-        label: "Orders",
         data: statusData,
         backgroundColor: ["#a5670f", "#3f6fa8", "#2f8f4e", "#b23b3b"],
       }],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-    },
-  });
-
-  new Chart(document.getElementById("availabilityChart"), {
-    type: "doughnut",
-    data: {
-      labels: ["Available", "Out of stock"],
-      datasets: [{ data: availabilityData, backgroundColor: ["#2f8f4e", "#b23b3b"] }],
     },
     options: { responsive: true },
   });
@@ -144,6 +130,15 @@
     data: {
       labels: ["Veg", "Non-veg"],
       datasets: [{ data: dietData, backgroundColor: ["#2f8f4e", "#b23b3b"] }],
+    },
+    options: { responsive: true },
+  });
+
+  new Chart(document.getElementById("orderedDietChart"), {
+    type: "pie",
+    data: {
+      labels: ["Veg", "Non-veg"],
+      datasets: [{ data: orderedDietData, backgroundColor: ["#2f8f4e", "#b23b3b"] }],
     },
     options: { responsive: true },
   });

@@ -10,6 +10,7 @@
     <button type="button" id="copy-order-id" class="admin-icon-button admin-copy-button" title="Copy order ID" aria-label="Copy order ID">{{ icon_copy() }}</button>
   </h1>
   <div class="admin-page-header-actions">
+    <a class="admin-button admin-button-success" href="{{ url_for('admin.order_invoice', order_id=order.order_id) }}" target="_blank">Print Invoice</a>
     <form method="post" action="{{ url_for('admin.order_generate_kt', order_id=order.order_id) }}" target="_blank">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <button type="submit" class="admin-button">Generate KT</button>

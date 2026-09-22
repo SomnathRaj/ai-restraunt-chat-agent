@@ -53,7 +53,7 @@
           <a class="admin-icon-button" href="{{ url_for('admin.menu_edit', item_id=item.item_id) }}"
              title="Edit {{ item.name }}" aria-label="Edit {{ item.name }}">{{ icon_edit() }}</a>
           <form method="post" action="{{ url_for('admin.menu_delete', item_id=item.item_id) }}"
-                onsubmit="return confirm('Permanently delete {{ item.name }}? This cannot be undone.');">
+                class="admin-delete-form" data-confirm-message="Permanently delete {{ item.name }}? This cannot be undone.">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <button type="submit" class="admin-icon-button admin-icon-button-danger"
                     title="Delete {{ item.name }}" aria-label="Delete {{ item.name }}">{{ icon_delete() }}</button>
@@ -68,4 +68,16 @@
 {% else %}
 <p class="admin-empty">{{ "No menu items match your search." if query else "No menu items yet." }}</p>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll(".admin-delete-form").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      if (!confirm(form.dataset.confirmMessage)) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 {% endblock %}

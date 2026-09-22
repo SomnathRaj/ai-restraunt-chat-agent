@@ -24,11 +24,177 @@
   </div>
 
   <h2>Items</h2>
-  {% include "admin/_order_item_picker.html" %}
+  {% include "admin/_order_new_items_picker.html" %}
 
   <div class="admin-form-actions">
     <button type="submit" class="admin-button">Create order</button>
     <a class="admin-button admin-button-muted" href="{{ url_for('admin.orders_list') }}">Cancel</a>
   </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  function renderItemWithDietDot(data, escape) {
+    var dotClass = data.is_veg ? "veg" : "nonveg";
+    return (
+      '<div><span class="diet-dot ' + dotClass + '" aria-hidden="true"></span>' +
+      escape(data.text) +
+      "</div>"
+    );
+  }
+
+  var itemPicker = new TomSelect("#add_item_id", {
+    placeholder: "Search for an item to add...",
+    dataAttr: "data",
+    render: {
+      option: renderItemWithDietDot,
+      item: renderItemWithDietDot,
+    },
+  });
+
+  var MENU_ITEMS = {};
+  JSON.parse(document.getElementById("menu-items-data").textContent).forEach(function (item) {
+    MENU_ITEMS[item.item_id] = item;
+  });
+
+  var deleteIconTemplate = document.getElementById("icon-delete-template");
+  var itemsTbody = document.getElementById("new-order-items-tbody");
+  var emptyTbody = document.getElementById("new-order-items-empty-body");
+
+  function updateEmptyState() {
+    emptyTbody.style.display = itemsTbody.children.length ? "none" : "";
+  }
+
+  function readdToPicker(itemId) {
+    var itemData = MENU_ITEMS[itemId];
+    if (!itemData) return;
+    itemPicker.addOption({
+      value: itemId,
+      text: itemData.name + " (₹" + Number(itemData.price).toFixed(2) + ")",
+      is_veg: itemData.is_veg,
+    });
+    itemPicker.refreshOptions(false);
+  }
+
+  function buildItemRow(itemId, itemData, quantity, note) {
+    var tr = document.createElement("tr");
+    tr.dataset.itemId = itemId;
+
+    var nameTd = document.createElement("td");
+    var dot = document.createElement("span");
+    dot.className = "diet-dot " + (itemData.is_veg ? "veg" : "nonveg");
+    dot.setAttribute("aria-hidden", "true");
+    nameTd.appendChild(dot);
+    nameTd.appendChild(document.createTextNode(itemData.name));
+    tr.appendChild(nameTd);
+
+    var priceTd = document.createElement("td");
+    priceTd.textContent = "₹" + Number(itemData.price).toFixed(2);
+    tr.appendChild(priceTd);
+
+    var qtyTd = document.createElement("td");
+    var qtyInput = document.createElement("input");
+    qtyInput.type = "number";
+    qtyInput.min = "0";
+    qtyInput.name = "qty__" + itemId;
+    qtyInput.value = quantity;
+    qtyInput.className = "admin-qty-input";
+    qtyTd.appendChild(qtyInput);
+    tr.appendChild(qtyTd);
+
+    var noteTd = document.createElement("td");
+    var noteInput = document.createElement("input");
+    noteInput.type = "text";
+    noteInput.name = "note__" + itemId;
+    noteInput.value = note;
+    noteInput.placeholder = "e.g. extra spicy";
+    noteTd.appendChild(noteInput);
+    tr.appendChild(noteTd);
+
+    var actionsTd = document.createElement("td");
+    var removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "admin-icon-button admin-icon-button-danger";
+    removeBtn.title = "Remove " + itemData.name;
+    removeBtn.setAttribute("aria-label", "Remove " + itemData.name);
+    removeBtn.appendChild(deleteIconTemplate.content.cloneNode(true));
+    removeBtn.addEventListener("click", function () {
+      tr.remove();
+      readdToPicker(itemId);
+      updateEmptyState();
+    });
+    actionsTd.appendChild(removeBtn);
+    tr.appendChild(actionsTd);
+
+    return tr;
+  }
+
+  // Wire up remove buttons for any rows already present on page load (an
+  // in-progress order re-rendered after a validation error, so the admin
+  // doesn't lose the items they'd already picked).
+  itemsTbody.querySelectorAll(".new-order-remove-item").forEach(function (button) {
+    var row = button.closest("tr");
+    button.addEventListener("click", function () {
+      row.remove();
+      readdToPicker(row.dataset.itemId);
+      updateEmptyState();
+    });
+  });
+
+  var addItemButton = document.getElementById("add_item_button");
+
+  // Tom Select attaches a document-level mousedown listener that blurs the
+  // control on any mousedown outside it -- which fires (and, without
+  // stopPropagation, still runs) even for a mousedown on this button right
+  // next to it, and swallows the very first click as a result (it takes a
+  // second press to actually register). Tom Select's own "remove item"
+  // buttons dodge this the same way: preventDefault() + stopPropagation()
+  // on mousedown so the blur-driven focus dance never reaches the document
+  // listener, and the click that follows registers normally.
+  addItemButton.addEventListener("mousedown", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  addItemButton.addEventListener("click", function () {
+    var itemId = itemPicker.getValue();
+    if (!itemId) return;
+    var itemData = MENU_ITEMS[itemId];
+    if (!itemData) return;
+
+    var qtyField = document.getElementById("add_item_qty");
+    var noteField = document.getElementById("add_item_note");
+    var quantity = parseInt(qtyField.value, 10);
+    if (!quantity || quantity < 1) quantity = 1;
+    var note = noteField.value.trim();
+
+    itemsTbody.appendChild(buildItemRow(itemId, itemData, quantity, note));
+    updateEmptyState();
+
+    // clear() must run before removeOption() -- Tom Select can't fully
+    // remove an option that's still the current selection, which left a
+    // stale "selected" chip stuck in the control instead of resetting to
+    // the placeholder.
+    itemPicker.clear();
+    itemPicker.removeOption(itemId);
+    qtyField.value = 1;
+    noteField.value = "";
+  });
+
+  // Enter in the add-item row confirms the pick (same as clicking Add)
+  // instead of submitting the whole "Create order" form prematurely.
+  document.querySelectorAll(".admin-add-item-row input").forEach(function (input) {
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addItemButton.click();
+      }
+    });
+  });
+
+  updateEmptyState();
+</script>
 {% endblock %}

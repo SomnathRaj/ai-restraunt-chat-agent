@@ -289,3 +289,40 @@ def test_admin_pages_never_render_the_password_or_hash(admin_logged_in_client):
     response = admin_logged_in_client.get("/admin/")
     assert ADMIN_PASSWORD.encode() not in response.data
     assert b"password_hash" not in response.data
+
+
+# ---------------------------------------------------------------------------
+# SECRET_KEY -- the admin portal's login session is only as strong as this
+# signing key, and config.py's fallback ("dev-only-insecure-key") is public
+# (committed to the repo), so it must never silently become the real key.
+# ---------------------------------------------------------------------------
+
+
+class _ProductionConfig(Config):
+    MONGODB_URI = "mongodb://localhost/test"
+    GEMINI_API_KEY = None
+    FLASK_ENV = "production"
+
+
+class _DevelopmentConfig(Config):
+    MONGODB_URI = "mongodb://localhost/test"
+    GEMINI_API_KEY = None
+    FLASK_ENV = "development"
+
+
+def test_create_app_refuses_to_start_in_production_without_a_real_secret_key(monkeypatch):
+    monkeypatch.delenv("FLASK_SECRET_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="FLASK_SECRET_KEY"):
+        create_app(_ProductionConfig)
+
+
+def test_create_app_boots_in_production_when_secret_key_is_set(monkeypatch):
+    monkeypatch.setenv("FLASK_SECRET_KEY", "a-real-randomly-generated-secret")
+    create_app(_ProductionConfig)  # must not raise
+
+
+def test_create_app_boots_in_development_without_a_secret_key(monkeypatch):
+    # The existing local-dev/test fallback must keep working unchanged --
+    # this check only ever fires for FLASK_ENV=production.
+    monkeypatch.delenv("FLASK_SECRET_KEY", raising=False)
+    create_app(_DevelopmentConfig)  # must not raise

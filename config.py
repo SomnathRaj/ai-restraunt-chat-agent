@@ -20,6 +20,10 @@ class Config:
     GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
     RESTAURANT_NAME = os.environ.get("RESTRAUNT_NAME", "Restaurant Name")
+    # No default -- a fake/placeholder UPI ID printed on a real invoice would
+    # be actively wrong, not just incomplete, so the invoice's QR code is
+    # simply omitted (not rendered with a bogus value) until this is set.
+    UPI_ID = os.environ.get("UPI_ID") or None
 
     SECRET_KEY = os.environ.get("FLASK_SECRET_KEY") or "dev-only-insecure-key"
 

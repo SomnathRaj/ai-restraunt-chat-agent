@@ -396,6 +396,21 @@ def test_order_detail_has_generate_kt_button_before_back_to_orders(admin_client,
     assert ">Generate KT<" in body
 
 
+def test_order_detail_has_invoice_button_before_generate_kt(admin_client, app, seeded_menu):
+    """Same header row also gets a Print Invoice link (plain GET, no CSRF
+    token needed) positioned before Generate KT."""
+    order = _place_customer_order(app)
+    response = admin_client.get(f"/admin/orders/{order['order_id']}")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    invoice_pos = body.index(f'href="/admin/orders/{order["order_id"]}/invoice"')
+    kt_pos = body.index(f'action="/admin/orders/{order["order_id"]}/generate-kt"')
+    assert invoice_pos < kt_pos
+    assert ">Print Invoice<" in body
+    assert 'class="admin-button admin-button-success"' in body
+
+
 def test_admin_can_update_order_status_via_form(admin_client, app, seeded_menu):
     order = _place_customer_order(app)
     response = admin_client.post(f"/admin/orders/{order['order_id']}/status", data={"status": "COMPLETED"})
@@ -468,6 +483,54 @@ def test_orders_list_shows_generate_kt_button(admin_client, app, seeded_menu):
     assert response.status_code == 200
     assert f'action="/admin/orders/{order["order_id"]}/generate-kt"'.encode() in response.data
     assert b'aria-label="Generate Kitchen Token' in response.data
+
+
+def test_orders_list_shows_invoice_button_for_both_due_and_paid_orders(admin_client, app, seeded_menu):
+    due_order = _place_customer_order(app, session_id="s1")
+    paid_order = _place_customer_order(app, session_id="s2")
+    admin_client.post(f"/admin/orders/{paid_order['order_id']}/payment-status", data={"payment_status": "PAID"})
+
+    response = admin_client.get("/admin/orders")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    assert f'href="/admin/orders/{paid_order["order_id"]}/invoice"' in body
+    assert f'aria-label="Print Invoice for order {paid_order["order_id"]}"' in body
+    assert f'href="/admin/orders/{due_order["order_id"]}/invoice"' in body
+    assert f'aria-label="Print Invoice for order {due_order["order_id"]}"' in body
+    assert 'class="admin-icon-button admin-icon-button-success"' in body
+
+
+def test_invoice_print_view_shows_order_id_customer_mobile_items_and_total(admin_client, app, seeded_menu):
+    with app.app_context():
+        cart_service.add_to_cart("s1", "chicken-biryani", 2)
+        cart_service.add_to_cart("s1", "coke", 1)
+        session_service.mark_instructions_prompted("s1")
+        order = order_service.create_order("s1", "Somnath", "9876543210")
+
+    response = admin_client.get(f"/admin/orders/{order['order_id']}/invoice")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert order["order_id"] in body
+    assert "Somnath" in body
+    assert "9876543210" in body
+    assert "Chicken Biryani" in body
+    assert "Coke" in body
+    assert f"₹{order['total']:.2f}" in body
+    assert order["total"] == 620
+    assert "In words: Rupees Six Hundred Twenty Only" in body
+    assert "Thank you for dining with us!" in body
+    # No UPI_ID configured in TestConfig -- the QR block must be skipped
+    # entirely, not rendered with a placeholder/broken image.
+    assert "data:image/png;base64," not in body
+    assert "Scan to pay via UPI" not in body
+
+
+def test_invoice_print_view_requires_login(client, app, seeded_menu):
+    order = _place_customer_order(app)
+    response = client.get(f"/admin/orders/{order['order_id']}/invoice")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/admin/login"
 
 
 def test_admin_can_cancel_order_via_form(admin_client, app, seeded_menu):
@@ -586,3 +649,65 @@ def test_admin_create_order_form_shows_error_on_empty_items_never_500(admin_clie
     )
     assert response.status_code == 400
     assert b"at least one item" in response.data
+
+
+def test_order_new_page_shows_searchable_add_item_ui_not_full_list(admin_client, seeded_menu):
+    """The new-order page must not dump every menu item with a quantity box
+    each -- it's the same one-at-a-time searchable-dropdown + Add button
+    pattern as the order detail page's "Add item" control."""
+    response = admin_client.get("/admin/orders/new")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert 'id="add_item_id"' in body
+    assert "tom-select" in body
+    assert 'id="add_item_button"' in body
+    assert ">Add<" in body
+    assert "No items added yet." in body
+    # No qty__<item_id> input should be pre-rendered for every item up
+    # front -- only added once the admin actually picks it.
+    assert 'name="qty__chicken-biryani"' not in body
+    assert 'name="qty__coke"' not in body
+
+
+def test_order_new_page_add_button_guards_against_tom_select_blur_swallowing_click(admin_client, seeded_menu):
+    """Regression guard: Tom Select blurs its control on any mousedown
+    outside it, which -- for the Add button sitting right next to the
+    dropdown in the same flex row -- silently swallowed the very first
+    click (it took two clicks to actually add an item) unless the button's
+    own mousedown handler stops that from happening first."""
+    response = admin_client.get("/admin/orders/new")
+    assert response.status_code == 200
+    body = response.data.decode()
+    add_button_pos = body.index('id="add_item_button"')
+    mousedown_pos = body.index('addItemButton.addEventListener("mousedown"')
+    assert mousedown_pos > add_button_pos
+    assert "event.preventDefault();" in body
+    assert "event.stopPropagation();" in body
+    # clear() must run before removeOption() for the same underlying reason
+    # (Tom Select can't fully remove an option that's still selected).
+    clear_pos = body.index("itemPicker.clear();")
+    remove_option_pos = body.index("itemPicker.removeOption(itemId);")
+    assert clear_pos < remove_option_pos
+
+
+def test_order_new_page_validation_error_preserves_picked_items(admin_client, seeded_menu):
+    """A validation error (e.g. missing customer name) must re-render the
+    already-picked items instead of losing them, and must not re-offer an
+    already-picked item in the dropdown (would let a resubmit produce a
+    second qty__<id> field for the same item)."""
+    response = admin_client.post(
+        "/admin/orders/new",
+        data={
+            "customer_name": "",
+            "mobile": "9876543212",
+            "qty__chicken-biryani": "2",
+            "note__chicken-biryani": "extra spicy",
+        },
+    )
+    assert response.status_code == 400
+    body = response.data.decode()
+    assert 'name="qty__chicken-biryani" value="2"' in body
+    assert 'name="note__chicken-biryani" value="extra spicy"' in body
+    assert "Chicken Biryani" in body
+    assert '<option value="chicken-biryani"' not in body
+    assert '<option value="coke"' in body

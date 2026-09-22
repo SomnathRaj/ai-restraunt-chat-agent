@@ -7,20 +7,28 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='admin/style.css') }}" />
 </head>
 <body>
+  {% from "admin/_icons.html" import icon_restaurant, icon_nav_dashboard, icon_nav_menu, icon_nav_faq, icon_nav_orders, icon_nav_chat, icon_logout %}
   <div id="admin-app">
     <aside id="admin-sidebar">
-      <div class="admin-brand">🍽 {{ config.RESTAURANT_NAME }} <span class="admin-brand-tag">Admin</span></div>
+      <div class="admin-brand">
+        <span class="admin-brand-icon">{{ icon_restaurant() }}</span>
+        <span class="admin-brand-text">
+          <span class="admin-brand-name">{{ config.RESTAURANT_NAME }}</span>
+          <span class="admin-brand-tag">Admin Panel</span>
+        </span>
+      </div>
       <nav id="admin-nav">
-        <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('admin.menu_list') }}">Menu</a>
-        <a href="{{ url_for('admin.faq_list') }}">FAQ</a>
-        <a href="{{ url_for('admin.orders_list') }}">Orders</a>
-        <a href="{{ url_for('admin.sessions_list') }}">Chat Sessions</a>
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.path == url_for('admin.dashboard') else '' }}">{{ icon_nav_dashboard() }}<span>Dashboard</span></a>
+        <a href="{{ url_for('admin.menu_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.menu_list')) else '' }}">{{ icon_nav_menu() }}<span>Menu</span></a>
+        <a href="{{ url_for('admin.faq_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.faq_list')) else '' }}">{{ icon_nav_faq() }}<span>FAQ</span></a>
+        <a href="{{ url_for('admin.orders_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.orders_list')) else '' }}">{{ icon_nav_orders() }}<span>Orders</span></a>
+        <a href="{{ url_for('admin.sessions_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.sessions_list')) else '' }}">{{ icon_nav_chat() }}<span>Chat Sessions</span></a>
       </nav>
       <form method="post" action="{{ url_for('admin.logout') }}" class="admin-logout-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <button type="submit" class="admin-logout-button">Log out</button>
+        <button type="submit" class="admin-logout-button">{{ icon_logout() }}<span>Log out</span></button>
       </form>
+      <p class="admin-copyright">&copy; {{ current_year }} {{ config.RESTAURANT_NAME }}. All rights reserved.</p>
     </aside>
     <main id="admin-content">
       {% block content %}{% endblock %}

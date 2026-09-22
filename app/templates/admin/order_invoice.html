@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invoice — {{ order.order_id }}</title>
+  <style>
+    /* Deliberately plain and self-contained -- this page is meant to go
+       straight to a thermal printer, not to look like the rest of the
+       admin portal. Mirrors order_kt.html's print styling, but unlike a
+       KT this carries prices -- it's the customer's payment record. */
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 3mm;
+      }
+      .inv-screen-only {
+        display: none;
+      }
+    }
+
+    body {
+      font-family: "Courier New", Courier, monospace;
+      width: 80mm;
+      margin: 0 auto;
+      padding: 0.5rem;
+      font-size: 13px;
+      color: #000;
+      background: #fff;
+    }
+
+    .inv-center {
+      text-align: center;
+    }
+
+    .inv-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .inv-rule {
+      border: none;
+      border-top: 1px dashed #000;
+      margin: 0.4rem 0;
+    }
+
+    .inv-items {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .inv-items th {
+      text-align: left;
+      font-weight: bold;
+      text-decoration: underline;
+      padding-bottom: 0.2rem;
+    }
+
+    .inv-items th.inv-num,
+    .inv-items td.inv-num {
+      text-align: right;
+    }
+
+    .inv-items td {
+      padding: 0.1rem 0;
+      vertical-align: top;
+    }
+
+    .inv-total-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .inv-amount-words {
+      font-size: 11px;
+      font-style: italic;
+      margin: 0.3rem 0 0 0;
+    }
+
+    .inv-qr {
+      margin-top: 0.4rem;
+    }
+
+    .inv-qr img {
+      width: 150px;
+      height: 150px;
+    }
+
+    .inv-qr-label {
+      font-size: 11px;
+      margin: 0.2rem 0 0 0;
+    }
+
+    .inv-thanks {
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
+
+    .inv-screen-only {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .inv-screen-only button {
+      font-size: 1rem;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body onload="window.print()">
+  <p class="inv-center inv-title">{{ config.RESTAURANT_NAME }}<br />INVOICE</p>
+  <hr class="inv-rule" />
+  <p>
+    Order: {{ order.order_id }}<br />
+    Placed: {{ order.created_at | admin_dt }}<br />
+    Customer: {{ order.customer_name }}<br />
+    Mobile: {{ order.mobile }}
+  </p>
+  <hr class="inv-rule" />
+
+  {% if order['items'] %}
+  <table class="inv-items">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th class="inv-num">Qty</th>
+        <th class="inv-num">Price</th>
+        <th class="inv-num">Amt</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in order['items'] %}
+      <tr>
+        <td>{{ line.name }}</td>
+        <td class="inv-num">{{ line.quantity }}</td>
+        <td class="inv-num">{{ "%.2f"|format(line.price) }}</td>
+        <td class="inv-num">{{ "%.2f"|format(line.total) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No items on this order.</p>
+  {% endif %}
+
+  <hr class="inv-rule" />
+
+  <div class="inv-total-row">
+    <span>Total</span>
+    <span>₹{{ "%.2f"|format(order.total) }}</span>
+  </div>
+  <p class="inv-amount-words">In words: {{ order.total | amount_in_words }}</p>
+
+  <hr class="inv-rule" />
+
+  {% if upi_qr_data_uri %}
+  <div class="inv-center inv-qr">
+    <img src="{{ upi_qr_data_uri }}" alt="Scan to pay via UPI" width="150" height="150" />
+    <p class="inv-qr-label">Scan to pay via UPI<br />{{ upi_id }}</p>
+  </div>
+  <hr class="inv-rule" />
+  {% endif %}
+
+  <p class="inv-center inv-thanks">Thank you for dining with us!</p>
+
+  <p class="inv-screen-only">
+    <button type="button" onclick="window.print()">Print</button>
+  </p>
+</body>
+</html>
