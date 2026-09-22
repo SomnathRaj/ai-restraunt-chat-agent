@@ -17,6 +17,10 @@ class TestConfig(Config):
     # mongomock client directly into app.extensions before any request runs.
     MONGODB_URI = "mongodb://localhost/test"
     GEMINI_API_KEY = None
+    # Admin login/logout tests post plain forms without a real browser
+    # session to fetch a token from -- CSRF itself is Flask-WTF's concern,
+    # not app logic, so it's off for the suite and left on in real config.
+    WTF_CSRF_ENABLED = False
 
 
 @pytest.fixture

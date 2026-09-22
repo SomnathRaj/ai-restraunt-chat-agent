@@ -1,0 +1,60 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_edit, icon_delete %}
+
+{% block title %}FAQ{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>FAQ</h1>
+  <a class="admin-button" href="{{ url_for('admin.faq_new') }}">+ New entry</a>
+</div>
+
+{% set search_placeholder = "Search by question, answer, category, keywords..." %}
+{% include "admin/_search_bar.html" %}
+
+{% if entries %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Category</th>
+      <th>Active</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr>
+      <td>{{ entry.question }}</td>
+      <td>{{ entry.category }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.faq_toggle_active', faq_id=entry.faq_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <label class="admin-switch" title="{{ 'Deactivate' if entry.active else 'Activate' }} this entry">
+            <input type="checkbox" {% if entry.active %}checked{% endif %} onchange="this.form.submit()"
+                   aria-label="{{ 'Deactivate' if entry.active else 'Activate' }} {{ entry.question }}" />
+            <span class="admin-switch-slider"></span>
+          </label>
+        </form>
+      </td>
+      <td>
+        <div class="admin-actions">
+          <a class="admin-icon-button" href="{{ url_for('admin.faq_edit', faq_id=entry.faq_id) }}"
+             title="Edit" aria-label="Edit {{ entry.question }}">{{ icon_edit() }}</a>
+          <form method="post" action="{{ url_for('admin.faq_delete', faq_id=entry.faq_id) }}"
+                onsubmit="return confirm('Permanently delete this FAQ entry? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="admin-icon-button admin-icon-button-danger"
+                    title="Delete" aria-label="Delete {{ entry.question }}">{{ icon_delete() }}</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "admin/_pagination.html" %}
+{% else %}
+<p class="admin-empty">{{ "No FAQ entries match your search." if query else "No FAQ entries yet." }}</p>
+{% endif %}
+{% endblock %}

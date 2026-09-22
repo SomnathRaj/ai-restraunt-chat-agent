@@ -1,0 +1,37 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}{{ "Edit FAQ entry" if entry and entry.faq_id else "New FAQ entry" }}{% endblock %}
+
+{% block content %}
+<h1>{{ "Edit FAQ entry" if entry and entry.faq_id else "New FAQ entry" }}</h1>
+
+{% if error %}
+<p class="admin-error" role="alert">{{ error }}</p>
+{% endif %}
+
+<form class="admin-form" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  <label for="question">Question
+    <input id="question" type="text" name="question" value="{{ entry.question if entry else '' }}" required />
+  </label>
+
+  <label for="answer">Answer
+    <textarea id="answer" name="answer" required>{{ entry.answer if entry else '' }}</textarea>
+  </label>
+
+  <label for="category">Category
+    <input id="category" type="text" name="category" value="{{ entry.category if entry else '' }}" />
+  </label>
+
+  <label for="keywords">Keywords (comma-separated)
+    <input id="keywords" type="text" name="keywords"
+           value="{{ (entry.keywords if entry.keywords is string else entry.keywords|join(', ')) if entry and entry.keywords else '' }}" />
+  </label>
+
+  <div class="admin-form-actions">
+    <button type="submit" class="admin-button">Save</button>
+    <a class="admin-button admin-button-muted" href="{{ url_for('admin.faq_list') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

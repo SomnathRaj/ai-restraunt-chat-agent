@@ -1,0 +1,56 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_print %}
+
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>Orders</h1>
+  <a class="admin-button" href="{{ url_for('admin.order_new') }}">+ New order</a>
+</div>
+
+{% set search_placeholder = "Search by order ID, customer, mobile, item..." %}
+{% include "admin/_search_bar.html" %}
+
+{% if orders %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Order ID</th>
+      <th>Customer</th>
+      <th>Total</th>
+      <th>Status</th>
+      <th>Payment</th>
+      <th>Placed</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for order in orders %}
+    <tr>
+      <td style="white-space: nowrap;"><a href="{{ url_for('admin.order_detail', order_id=order.order_id) }}">{{ order.order_id }}</a></td>
+      <td>{{ order.customer_name }}</td>
+      <td>₹{{ "%.2f"|format(order.total) }}</td>
+      <td><span class="admin-badge admin-badge-status-{{ order.status|lower }}">{{ order.status }}</span></td>
+      <td>
+        <span class="admin-badge {{ 'admin-badge-active' if order.payment_status == 'PAID' else 'admin-badge-unavailable' }}">
+          {{ order.payment_status }}
+        </span>
+      </td>
+      <td style="white-space: nowrap;">{{ order.created_at | admin_dt }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.order_generate_kt', order_id=order.order_id) }}" target="_blank">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="admin-icon-button" title="Generate Kitchen Token"
+                  aria-label="Generate Kitchen Token for order {{ order.order_id }}">{{ icon_print() }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "admin/_pagination.html" %}
+{% else %}
+<p class="admin-empty">{{ "No orders match your search." if query else "No orders yet." }}</p>
+{% endif %}
+{% endblock %}

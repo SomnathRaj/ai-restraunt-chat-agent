@@ -1,0 +1,52 @@
+{# Used only by order_detail.html -- unlike _order_item_picker.html (the
+   full-menu picker used to build a brand new order), this only lists items
+   already on the order (quantity >= 1), plus one control to add another. #}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Price</th>
+      <th>Quantity</th>
+      <th>Cooking instructions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item_id, current in current_by_id.items() %}
+    {% set item = menu_by_id.get(item_id) %}
+    <tr>
+      <td>
+        {% if item %}
+        <span class="diet-dot {{ 'veg' if item.is_veg else 'nonveg' }}" aria-hidden="true"></span>
+        {{ item.name }}
+        {% else %}
+        {{ current.name }} <span class="admin-empty">(no longer on the menu)</span>
+        {% endif %}
+      </td>
+      <td>₹{{ "%.2f"|format(item.price if item else current.price) }}</td>
+      <td>
+        <input type="number" min="0" name="qty__{{ item_id }}" value="{{ current.quantity }}" class="admin-qty-input" />
+      </td>
+      <td>
+        <input type="text" name="note__{{ item_id }}" value="{{ current.special_instructions or '' }}"
+               placeholder="e.g. extra spicy" />
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="4" class="admin-empty">No items in this order.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="admin-add-item-row">
+  <label for="add_item_id">Add item</label>
+  <select id="add_item_id" name="add_item_id">
+    <option value="">— choose an item —</option>
+    {% for item in addable_menu_items %}
+    <option value="{{ item.item_id }}" data-data='{"is_veg":{{ "true" if item.is_veg else "false" }}}'>{{ item.name }} (₹{{ "%.2f"|format(item.price) }})</option>
+    {% endfor %}
+  </select>
+  <input type="number" min="1" value="1" name="add_item_qty" class="admin-qty-input" aria-label="Quantity to add" />
+  <input type="text" name="add_item_note" placeholder="e.g. extra spicy" aria-label="Cooking instructions for the added item" />
+</div>

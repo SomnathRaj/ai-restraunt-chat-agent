@@ -1,0 +1,34 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}New order{% endblock %}
+
+{% block content %}
+<h1>New order</h1>
+<p class="admin-empty">Created orders start at status <strong>Processing Food</strong> and payment <strong>Due</strong>, since the admin is entering an order that's already being actioned (e.g. a phone-in order).</p>
+
+{% if error %}
+<p class="admin-error" role="alert">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  <div class="admin-form" style="max-width: 420px; margin-bottom: 1.5rem;">
+    <label for="customer_name">Customer name
+      <input id="customer_name" type="text" name="customer_name" value="{{ customer_name }}" required />
+    </label>
+
+    <label for="mobile">Mobile number
+      <input id="mobile" type="text" name="mobile" value="{{ mobile }}" required />
+    </label>
+  </div>
+
+  <h2>Items</h2>
+  {% include "admin/_order_item_picker.html" %}
+
+  <div class="admin-form-actions">
+    <button type="submit" class="admin-button">Create order</button>
+    <a class="admin-button admin-button-muted" href="{{ url_for('admin.orders_list') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

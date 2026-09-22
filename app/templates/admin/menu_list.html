@@ -1,0 +1,71 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_edit, icon_delete %}
+
+{% block title %}Menu{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>Menu</h1>
+  <a class="admin-button" href="{{ url_for('admin.menu_new') }}">+ New item</a>
+</div>
+
+{% set search_placeholder = "Search by name, category, tags..." %}
+{% include "admin/_search_bar.html" %}
+
+{% if items %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Category</th>
+      <th>Price</th>
+      <th>Availability</th>
+      <th>Active</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>
+        <span class="diet-dot {{ 'veg' if item.is_veg else 'nonveg' }}" aria-hidden="true"></span>
+        {{ item.name }}
+      </td>
+      <td>{{ item.category }}</td>
+      <td>₹{{ "%.2f"|format(item.price) }}</td>
+      <td>
+        {% if not item.availability %}
+          <span class="admin-badge admin-badge-unavailable">Out of stock</span>
+        {% endif %}
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('admin.menu_toggle_active', item_id=item.item_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <label class="admin-switch" title="{{ 'Deactivate' if item.active else 'Activate' }} {{ item.name }}">
+            <input type="checkbox" {% if item.active %}checked{% endif %} onchange="this.form.submit()"
+                   aria-label="{{ 'Deactivate' if item.active else 'Activate' }} {{ item.name }}" />
+            <span class="admin-switch-slider"></span>
+          </label>
+        </form>
+      </td>
+      <td>
+        <div class="admin-actions">
+          <a class="admin-icon-button" href="{{ url_for('admin.menu_edit', item_id=item.item_id) }}"
+             title="Edit {{ item.name }}" aria-label="Edit {{ item.name }}">{{ icon_edit() }}</a>
+          <form method="post" action="{{ url_for('admin.menu_delete', item_id=item.item_id) }}"
+                onsubmit="return confirm('Permanently delete {{ item.name }}? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="admin-icon-button admin-icon-button-danger"
+                    title="Delete {{ item.name }}" aria-label="Delete {{ item.name }}">{{ icon_delete() }}</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "admin/_pagination.html" %}
+{% else %}
+<p class="admin-empty">{{ "No menu items match your search." if query else "No menu items yet." }}</p>
+{% endif %}
+{% endblock %}

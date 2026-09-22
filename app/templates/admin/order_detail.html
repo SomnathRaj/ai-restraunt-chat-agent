@@ -1,0 +1,110 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_copy %}
+
+{% block title %}Order {{ order.order_id }}{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>
+    Order ID: <span id="order-id-value">{{ order.order_id }}</span>
+    <button type="button" id="copy-order-id" class="admin-icon-button admin-copy-button" title="Copy order ID" aria-label="Copy order ID">{{ icon_copy() }}</button>
+  </h1>
+  <div class="admin-page-header-actions">
+    <form method="post" action="{{ url_for('admin.order_generate_kt', order_id=order.order_id) }}" target="_blank">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit" class="admin-button">Generate KT</button>
+    </form>
+    <a class="admin-button admin-button-muted" href="{{ url_for('admin.orders_list') }}">Back to orders</a>
+  </div>
+</div>
+
+<p class="admin-order-price-summary">Subtotal: ₹{{ "%.2f"|format(order.subtotal) }} &nbsp; Total: ₹{{ "%.2f"|format(order.total) }}</p>
+
+{% if error %}
+<p class="admin-error" role="alert">{{ error }}</p>
+{% endif %}
+
+<div class="admin-order-meta">
+  <p><strong>Customer:</strong> {{ order.customer_name }} ({{ order.mobile }})</p>
+  <p><strong>Created by:</strong> {{ order.created_by or "unknown (order predates this field)" }}</p>
+  <p><strong>Placed:</strong> {{ order.created_at | admin_dt }}</p>
+  <p><strong>Last updated:</strong> {{ order.updated_at | admin_dt }}</p>
+</div>
+
+<div class="admin-order-status-forms">
+  <form method="post" action="{{ url_for('admin.order_update_status', order_id=order.order_id) }}" class="admin-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label for="status">Status</label>
+    <select id="status" name="status">
+      {% for value in ["PENDING", "PROCESSING_FOOD", "COMPLETED", "CANCEL"] %}
+      <option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="admin-button">Update status</button>
+  </form>
+
+  <form method="post" action="{{ url_for('admin.order_update_payment_status', order_id=order.order_id) }}" class="admin-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label for="payment_status">Payment</label>
+    <select id="payment_status" name="payment_status">
+      {% for value in ["DUE", "PAID"] %}
+      <option value="{{ value }}" {% if order.payment_status == value %}selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="admin-button">Update payment</button>
+  </form>
+</div>
+
+<h2>Items</h2>
+
+<form method="post" action="{{ url_for('admin.order_update_items', order_id=order.order_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  {% include "admin/_order_items_editor.html" %}
+
+  <label for="order_notes" class="admin-order-notes-label">Order notes</label>
+  <textarea id="order_notes" name="order_notes" class="admin-order-notes-input"
+            placeholder="Whole-order cooking/preparation notes">{{ order.order_notes or "" }}</textarea>
+
+  <div class="admin-form-actions">
+    <button type="submit" class="admin-button">Save items &amp; notes</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  function renderItemWithDietDot(data, escape) {
+    var dotClass = data.is_veg ? "veg" : "nonveg";
+    return (
+      '<div><span class="diet-dot ' + dotClass + '" aria-hidden="true"></span>' +
+      escape(data.text) +
+      "</div>"
+    );
+  }
+
+  new TomSelect("#add_item_id", {
+    placeholder: "Search for an item to add...",
+    dataAttr: "data",
+    render: {
+      option: renderItemWithDietDot,
+      item: renderItemWithDietDot,
+    },
+  });
+
+  var copyButton = document.getElementById("copy-order-id");
+  copyButton.addEventListener("click", function () {
+    var orderId = document.getElementById("order-id-value").textContent;
+    navigator.clipboard.writeText(orderId).then(function () {
+      var originalTitle = copyButton.getAttribute("title");
+      copyButton.setAttribute("title", "Copied!");
+      copyButton.classList.add("admin-copy-button-copied");
+      setTimeout(function () {
+        copyButton.setAttribute("title", originalTitle);
+        copyButton.classList.remove("admin-copy-button-copied");
+      }, 1500);
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Admin{% endblock %} — {{ config.RESTAURANT_NAME }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin/style.css') }}" />
+</head>
+<body>
+  <div id="admin-app">
+    <aside id="admin-sidebar">
+      <div class="admin-brand">🍽 {{ config.RESTAURANT_NAME }} <span class="admin-brand-tag">Admin</span></div>
+      <nav id="admin-nav">
+        <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('admin.menu_list') }}">Menu</a>
+        <a href="{{ url_for('admin.faq_list') }}">FAQ</a>
+        <a href="{{ url_for('admin.orders_list') }}">Orders</a>
+        <a href="{{ url_for('admin.sessions_list') }}">Chat Sessions</a>
+      </nav>
+      <form method="post" action="{{ url_for('admin.logout') }}" class="admin-logout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="admin-logout-button">Log out</button>
+      </form>
+    </aside>
+    <main id="admin-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

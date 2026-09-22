@@ -1,0 +1,50 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_view, icon_delete %}
+
+{% block title %}Chat Sessions{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>Chat Sessions</h1>
+</div>
+
+{% set search_placeholder = "Search by customer name or mobile..." %}
+{% include "admin/_search_bar.html" %}
+
+{% if sessions %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Customer</th>
+      <th>Mobile</th>
+      <th>Last active</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for session in sessions %}
+    <tr>
+      <td><a href="{{ url_for('admin.session_detail', session_id=session.session_id) }}">{{ session.customer_name or "Anonymous" }}</a></td>
+      <td>{{ session.mobile or "—" }}</td>
+      <td style="white-space: nowrap;">{{ session.updated_at | admin_dt }}</td>
+      <td>
+        <div class="admin-actions">
+          <a class="admin-icon-button" href="{{ url_for('admin.session_detail', session_id=session.session_id) }}"
+             title="View" aria-label="View session for {{ session.customer_name or 'Anonymous' }}">{{ icon_view() }}</a>
+          <form method="post" action="{{ url_for('admin.session_delete', session_id=session.session_id) }}"
+                onsubmit="return confirm('Permanently delete this chat session? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="admin-icon-button admin-icon-button-danger"
+                    title="Delete" aria-label="Delete session for {{ session.customer_name or 'Anonymous' }}">{{ icon_delete() }}</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "admin/_pagination.html" %}
+{% else %}
+<p class="admin-empty">{{ "No chat sessions match your search." if query else "No chat sessions yet." }}</p>
+{% endif %}
+{% endblock %}

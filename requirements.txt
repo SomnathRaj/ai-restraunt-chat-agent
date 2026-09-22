@@ -4,5 +4,6 @@ python-dotenv
 google-genai
 flask-cors
 Flask-Limiter
+Flask-WTF
 pytest
 mongomock

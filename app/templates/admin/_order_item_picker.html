@@ -1,0 +1,33 @@
+{# Shared by order_new.html and order_detail.html -- expects menu_items
+   (active items only) and current_by_id ({item_id: {"quantity":.., "special_instructions":..}}). #}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Price</th>
+      <th>Quantity</th>
+      <th>Cooking instructions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in menu_items %}
+    {% set current = current_by_id.get(item.item_id) %}
+    <tr>
+      <td>
+        <span class="diet-dot {{ 'veg' if item.is_veg else 'nonveg' }}" aria-hidden="true"></span>
+        {{ item.name }}
+      </td>
+      <td>₹{{ "%.2f"|format(item.price) }}</td>
+      <td>
+        <input type="number" min="0" name="qty__{{ item.item_id }}"
+               value="{{ current.quantity if current else 0 }}" class="admin-qty-input" />
+      </td>
+      <td>
+        <input type="text" name="note__{{ item.item_id }}"
+               value="{{ current.special_instructions if current and current.special_instructions else '' }}"
+               placeholder="e.g. extra spicy" />
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

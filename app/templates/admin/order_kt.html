@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kitchen Token — {{ order.order_id }}</title>
+  <style>
+    /* Deliberately plain and self-contained -- this page is meant to go
+       straight to a thermal printer, not to look like the rest of the
+       admin portal. No prices here on purpose: a KT tells the kitchen
+       what to cook, not what to charge (PRD Section 92). */
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 3mm;
+      }
+      .kt-screen-only {
+        display: none;
+      }
+    }
+
+    body {
+      font-family: "Courier New", Courier, monospace;
+      width: 80mm;
+      margin: 0 auto;
+      padding: 0.5rem;
+      font-size: 13px;
+      color: #000;
+      background: #fff;
+    }
+
+    .kt-center {
+      text-align: center;
+    }
+
+    .kt-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .kt-rule {
+      border: none;
+      border-top: 1px dashed #000;
+      margin: 0.4rem 0;
+    }
+
+    .kt-item {
+      margin-bottom: 0.3rem;
+    }
+
+    .kt-item-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+    }
+
+    .kt-header-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      text-decoration: underline;
+      margin-bottom: 0.3rem;
+    }
+
+    .kt-item-note {
+      padding-left: 0.75rem;
+      font-style: italic;
+    }
+
+    .kt-notes {
+      margin-top: 0.2rem;
+    }
+
+    .kt-screen-only {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .kt-screen-only button {
+      font-size: 1rem;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body onload="window.print()">
+  <p class="kt-center kt-title">{{ config.RESTAURANT_NAME }}<br />KITCHEN TOKEN</p>
+  <hr class="kt-rule" />
+  <p>
+    Order: {{ order.order_id }}<br />
+    Placed: {{ order.created_at | admin_dt }}
+  </p>
+  <hr class="kt-rule" />
+
+  {% if order['items'] %}
+  <div class="kt-header-row">
+    <span>Item</span>
+    <span>QTY</span>
+  </div>
+  {% endif %}
+
+  {% for line in order['items'] %}
+  <div class="kt-item">
+    <div class="kt-item-row">
+      <span>{{ line.name }}</span>
+      <span>{{ line.quantity }}</span>
+    </div>
+    {% if line.special_instructions %}
+    <div class="kt-item-note">Note: {{ line.special_instructions }}</div>
+    {% endif %}
+  </div>
+  {% else %}
+  <p>No items on this order.</p>
+  {% endfor %}
+
+  <hr class="kt-rule" />
+
+  {% if order.order_notes %}
+  <div class="kt-notes">
+    <strong>Order Notes:</strong><br />
+    {{ order.order_notes }}
+  </div>
+  <hr class="kt-rule" />
+  {% endif %}
+
+  <p class="kt-screen-only">
+    <button type="button" onclick="window.print()">Print</button>
+  </p>
+</body>
+</html>

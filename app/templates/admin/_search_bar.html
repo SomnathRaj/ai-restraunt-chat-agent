@@ -1,0 +1,10 @@
+{# Shared by menu_list/faq_list/orders_list/sessions_list.html. Expects
+   `query` (current search text) and `search_placeholder`. A plain GET form
+   -- submitting always resets to page 1 since it has no page field. #}
+<form method="get" class="admin-search-bar">
+  <input type="text" name="q" value="{{ query }}" placeholder="{{ search_placeholder }}" />
+  <button type="submit" class="admin-button">Search</button>
+  {% if query %}
+  <a class="admin-button admin-button-muted" href="{{ request.path }}">Clear</a>
+  {% endif %}
+</form>

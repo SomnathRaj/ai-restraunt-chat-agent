@@ -1,0 +1,29 @@
+{% extends "admin/layout.html" %}
+{% from "admin/_icons.html" import icon_delete %}
+
+{% block title %}Session — {{ session.customer_name or "Anonymous" }}{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>{{ session.customer_name or "Anonymous" }}{% if session.mobile %} ({{ session.mobile }}){% endif %}</h1>
+  <div class="admin-actions">
+    <a class="admin-button admin-button-muted" href="{{ url_for('admin.sessions_list') }}">Back to sessions</a>
+    <form method="post" action="{{ url_for('admin.session_delete', session_id=session.session_id) }}"
+          onsubmit="return confirm('Permanently delete this chat session? This cannot be undone.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit" class="admin-icon-button admin-icon-button-danger"
+              title="Delete" aria-label="Delete this chat session">{{ icon_delete() }}</button>
+    </form>
+  </div>
+</div>
+
+<p class="admin-empty">Last active: {{ session.updated_at | admin_dt }}</p>
+
+<div class="admin-chat-transcript">
+  {% for turn in session.history %}
+  <div class="admin-chat-message {{ turn.role }}">{{ turn.text }}</div>
+  {% else %}
+  <p class="admin-empty">No messages in this session yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

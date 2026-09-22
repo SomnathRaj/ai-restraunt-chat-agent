@@ -87,6 +87,8 @@ def ensure_indexes(db):
     db.menu.create_index([("active", ASCENDING), ("availability", ASCENDING)])
     db.menu.create_index([("category", ASCENDING)])
 
+    db.categories.create_index([("name", ASCENDING)], unique=True)
+
     db.faq.create_index([("faq_id", ASCENDING)], unique=True)
     db.faq.create_index([("active", ASCENDING)])
 
@@ -95,5 +97,7 @@ def ensure_indexes(db):
 
     db.chat_sessions.create_index([("session_id", ASCENDING)], unique=True)
     db.chat_sessions.create_index("updated_at", expireAfterSeconds=current_app.config["SESSION_TTL_SECONDS"])
+
+    db.users.create_index([("email", ASCENDING)], unique=True)
 
     log.info("MongoDB indexes ensured")
