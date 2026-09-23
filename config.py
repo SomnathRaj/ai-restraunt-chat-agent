@@ -49,3 +49,4 @@ class Config:
 
     MAX_ITEM_QUANTITY = 50
     INSTRUCTIONS_MAX_LENGTH = 200
+    GSTINNO = os.environ.get("GSTINNO", "")
