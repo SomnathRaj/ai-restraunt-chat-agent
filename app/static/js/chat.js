@@ -32,6 +32,8 @@
   const sessionId = getOrCreateSessionId();
 
   const log = document.getElementById("chat-log");
+  const aiAvatarTemplate = document.getElementById("ai-avatar-template");
+  const menuCardImageTemplate = document.getElementById("menu-card-image-template");
   const form = document.getElementById("chat-form");
   const input = document.getElementById("chat-input");
   const sendButton = form.querySelector(".send-button");
@@ -108,6 +110,18 @@
 
   function appendMessage(text, role, options) {
     options = options || {};
+
+    const row = document.createElement("div");
+    row.className = "message-row " + role;
+
+    if (role === "ai") {
+      const avatar = document.createElement("span");
+      avatar.className = "message-avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.appendChild(aiAvatarTemplate.content.cloneNode(true));
+      row.appendChild(avatar);
+    }
+
     const el = document.createElement("div");
     el.className = "message " + role;
     if (options.isError) el.classList.add("error");
@@ -119,7 +133,8 @@
       el.textContent = text;
     }
 
-    log.appendChild(el);
+    row.appendChild(el);
+    log.appendChild(row);
     log.scrollTop = log.scrollHeight;
     return el;
   }
@@ -253,7 +268,7 @@
     const image = document.createElement("div");
     image.className = "menu-card-image";
     image.setAttribute("aria-hidden", "true");
-    image.textContent = "🍽️";
+    image.appendChild(menuCardImageTemplate.content.cloneNode(true));
     card.appendChild(image);
 
     const name = document.createElement("div");
