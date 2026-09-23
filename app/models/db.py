@@ -100,4 +100,13 @@ def ensure_indexes(db):
 
     db.users.create_index([("email", ASCENDING)], unique=True)
 
+    db.ai_providers.create_index([("provider", ASCENDING)], unique=True)
+    db.ai_providers.create_index([("active", ASCENDING)])
+    # The fixed four provider documents (MULTI_AI_PROVIDER_DESIGN.md D3) --
+    # imported here rather than at module top to avoid a circular import
+    # (the service itself imports get_db from this module).
+    from app.services.ai_provider_service import ensure_provider_documents
+
+    ensure_provider_documents(db)
+
     log.info("MongoDB indexes ensured")

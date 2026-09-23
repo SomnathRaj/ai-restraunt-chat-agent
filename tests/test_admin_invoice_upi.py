@@ -20,7 +20,6 @@ ADMIN_PASSWORD = "pass123"
 
 class _UpiConfig(Config):
     MONGODB_URI = "mongodb://localhost/test"
-    GEMINI_API_KEY = None
     WTF_CSRF_ENABLED = False
     UPI_ID = "restaurant@upi"
 

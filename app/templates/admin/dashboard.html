@@ -7,6 +7,13 @@
   <h1>Dashboard</h1>
 </div>
 
+{# Provider + model only -- never the key (MULTI_AI_PROVIDER_DESIGN.md Section 5). #}
+{% if ai_summary %}
+<p class="admin-hint">AI: {{ ai_summary.display_name }} · <code>{{ ai_summary.model }}</code></p>
+{% else %}
+<p class="admin-warning">AI: no provider is active, so the customer chat can't reply. <a href="{{ url_for('admin.ai_settings') }}">Set one up in AI Settings</a>.</p>
+{% endif %}
+
 <div class="admin-dashboard-filters">
   <div class="admin-filter-links">
     <a class="admin-filter-link {{ 'active' if range_key == 'today' else '' }}" href="{{ url_for('admin.dashboard', range='today') }}">Today</a>

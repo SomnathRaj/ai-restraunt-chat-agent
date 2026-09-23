@@ -760,6 +760,7 @@ body {
 }
 
 .admin-form input[type="text"],
+.admin-form input[type="password"],
 .admin-form input[type="number"],
 .admin-form input[type="url"],
 .admin-form select,
@@ -949,4 +950,105 @@ body {
   color: var(--admin-muted);
   font-size: 0.8rem;
   margin: 0.6rem 0 0;
+}
+
+/* ---- AI Settings (MULTI_AI_PROVIDER_DESIGN.md Section 5) ---- */
+
+.admin-notice,
+.admin-warning {
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.4rem;
+  margin: 0 0 1rem;
+}
+
+.admin-notice {
+  background: #e4f4e9;
+  border: 1px solid var(--admin-success);
+  color: var(--admin-success);
+}
+
+.admin-warning {
+  background: #fdf1de;
+  border: 1px solid #a5670f;
+  color: #7a4c0b;
+}
+
+.admin-hint {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.admin-badge-muted {
+  background: #eef1f4;
+  color: var(--admin-muted);
+}
+
+.admin-provider-section {
+  margin-bottom: 2rem;
+}
+
+.admin-provider-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+}
+
+.admin-form-wide {
+  max-width: 640px;
+}
+
+.admin-radio-list {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.admin-radio-list legend {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-disabled {
+  opacity: 0.6;
+}
+
+.admin-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.admin-provider-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-provider-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-provider-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  margin-right: auto;
+}
+
+/* The card already supplies the surface/border. */
+.admin-form-flat {
+  border: 0;
+  padding: 0;
+  max-width: none;
 }

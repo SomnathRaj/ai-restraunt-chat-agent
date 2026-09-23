@@ -1,7 +1,7 @@
 """Temporary cart management, including cooking instructions (PRD Sections 22-27).
 
 Called from both app/api/cart.py (REST -- e.g. the [Add] button) and
-app/ai/tool_executor.py (Gemini tool calls) -- never re-implement this logic
+app/ai/tool_executor.py (AI tool calls) -- never re-implement this logic
 in either caller. Every mutation must re-validate against menu_service
 (product exists/active/available, price from MongoDB) per PRD Section 24.
 

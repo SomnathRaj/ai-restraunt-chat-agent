@@ -1,18 +1,12 @@
 """Chat API (PRD Section 44-45) -- the primary AI conversation endpoint."""
 
-import logging
-
-import httpx
 from flask import Blueprint, current_app, jsonify, request
-from google.genai.errors import APIError
 
 from app.ai.agent import ChatAgent
-from app.ai.gemini_client import GeminiNotConfigured
+from app.ai.providers.base import AIProviderNotConfigured, AIProviderRateLimited, AIProviderUnavailable
 from app.extensions import limiter
 from app.utils.errors import AppError, error_response
 from app.utils.sanitization import clean_text
-
-log = logging.getLogger(__name__)
 
 bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 
@@ -37,28 +31,20 @@ def chat():
     if not message:
         raise AppError("invalid_request", "message must not be empty")
 
+    # Each provider adapter maps its own SDK's failures onto these neutral
+    # types and logs the details server-side, so raw SDK exceptions (which
+    # can include response bodies) never reach the customer.
     try:
         reply = ChatAgent().handle_message(session_id, message)
-    except GeminiNotConfigured:
-        return error_response("ai_not_configured", "Gemini is not configured yet. Set GEMINI_API_KEY in .env.", 503)
-    except APIError as err:
-        # Covers real failures we've hit during development: Gemini quota
-        # exhaustion (429) and upstream 5xx errors. Never let the raw SDK
-        # exception (which can include response bodies) reach the generic
-        # 500 handler / customer -- log server-side only, reply honestly.
-        log.warning("gemini_api_error", extra={"status_code": err.code})
-        if err.code == 429:
-            return error_response(
-                "ai_rate_limited", "We're getting a lot of requests right now. Please try again in a moment.", 429
-            )
+    except AIProviderNotConfigured:
         return error_response(
-            "ai_unavailable", "I'm having trouble reaching our AI service right now. Please try again in a moment.", 503
+            "ai_not_configured", "Our AI assistant isn't set up yet. Please try again later.", 503
         )
-    except httpx.HTTPError as err:
-        # Network-level failure below the API-response layer (connection
-        # refused, DNS failure, or -- explicitly required by PRD Section 76
-        # ("gracefully handle Gemini/API timeouts") -- a genuine timeout.
-        log.warning("gemini_network_error", extra={"error_type": type(err).__name__})
+    except AIProviderRateLimited:
+        return error_response(
+            "ai_rate_limited", "We're getting a lot of requests right now. Please try again in a moment.", 429
+        )
+    except AIProviderUnavailable:
         return error_response(
             "ai_unavailable", "I'm having trouble reaching our AI service right now. Please try again in a moment.", 503
         )

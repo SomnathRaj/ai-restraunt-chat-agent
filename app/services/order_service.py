@@ -1,7 +1,7 @@
 """Order creation, ID generation, and status lookup (PRD Sections 33-39).
 
 Called from both app/api/orders.py (REST) and app/ai/tool_executor.py
-(Gemini tool calls) -- never re-implement this logic in either caller.
+(AI tool calls) -- never re-implement this logic in either caller.
 """
 
 import re

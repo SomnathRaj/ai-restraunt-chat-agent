@@ -1,6 +1,6 @@
 # AI Restaurant Chat Ordering Agent
 
-A web-based conversational ordering system: customers browse the menu, get recommendations, place orders, and check order status entirely through chat (English, Bengali, Hinglish, Benglish — auto-detected). Flask + MongoDB + Google Gemini, no Docker. Includes a server-rendered Admin Portal for managing the menu, FAQ, and orders, plus a dashboard and chat session viewing.
+A web-based conversational ordering system: customers browse the menu, get recommendations, place orders, and check order status entirely through chat (English, Bengali, Hinglish, Benglish — auto-detected). Flask + MongoDB + an admin-selected AI provider (Google Gemini, OpenAI, Anthropic Claude or OpenRouter), no Docker. Includes a server-rendered Admin Portal for managing the menu, FAQ, and orders, plus a dashboard and chat session viewing.
 
 See [AI_Restaurant_Chat_Ordering_Agent_PRD.md](AI_Restaurant_Chat_Ordering_Agent_PRD.md) for the full product spec, [ARCHITECTURE.md](ARCHITECTURE.md) for the technical design, and [CHECKLIST.md](CHECKLIST.md) for what's implemented and verified so far.
 
@@ -24,9 +24,9 @@ Fill in `.env`:
 |---|---|---|
 | `MONGODB_URI` | for DB features | The app boots fine without it — `/healthz` reports `"mongodb": false` until set |
 | `MONGODB_DATABASE` | no | Defaults to `restaurant_bot` |
-| `GEMINI_API_KEY` | for chat | The app boots fine without it — `/healthz` reports `"gemini": false` until set |
-| `GEMINI_MODEL` | no | Defaults to the `-latest` Flash alias |
+| `AI_CREDENTIALS_ENCRYPTION_KEY` | for chat | Encrypts the AI provider API keys you enter in **Admin → AI Settings** (the keys themselves are stored in MongoDB, never in `.env`). Generate one: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Keep a recovery copy in a password manager; losing or changing it means re-entering every provider's key (runbook: `MULTI_AI_PROVIDER_DESIGN.md` Appendix A) |
 | `FLASK_SECRET_KEY` | **required if `FLASK_ENV=production`** (the app refuses to boot without it there — the Admin Portal's login session depends on it) | Generate one: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `FLASK_ENV` | **set to `production` on any real deployment** | `development` turns on the Werkzeug debugger, whose (PIN-protected) console can inspect a request's local variables, including a decrypted AI provider key. For the same reason, never enable the SDKs' debug logging (`OPENAI_LOG`, `ANTHROPIC_LOG`) in production |
 | `CORS_ALLOWED_ORIGINS` | no | Keep in sync with `PORT` |
 | `PORT` | no | Defaults to `5000` |
 | `RESTRAUNT_NAME` | no | Shown in the chat UI header/title |
@@ -57,7 +57,11 @@ python scripts/seed_demo_orders.py  # 10 demo orders backdated across the last 7
 python run.py
 ```
 
-Opens at `http://localhost:<PORT>` (default `http://localhost:5000`). Check `curl localhost:<PORT>/healthz` to confirm Mongo/Gemini are both connected — `{"mongodb": true, "gemini": true}`.
+Opens at `http://localhost:<PORT>` (default `http://localhost:5000`).
+
+**Set up the AI provider** (the customer chat can't reply until you do): log in to the Admin Portal, open **AI Settings**, paste your Gemini API key and a model name (e.g. `gemini-flash-latest`) — or an OpenAI key and model (e.g. `gpt-4o-mini`), an Anthropic key and model (e.g. `claude-opus-5`), or an OpenRouter key and a tool-capable model (e.g. `openai/gpt-4o-mini`), click **Save** (it runs a connection test automatically), then select that provider under **Active provider** and click **Make active**. No restart is needed.
+
+Check `curl localhost:<PORT>/healthz` to confirm both are ready: `{"mongodb": true, "ai": true}`. `ai` is true once an active provider has a readable API key.
 
 ## Admin Portal
 
@@ -73,7 +77,7 @@ Covers: menu & FAQ management (search, pagination, active/inactive toggle); orde
 pytest -q
 ```
 
-Runs against `mongomock` (no real database needed) — fast and hermetic. No `GEMINI_API_KEY` needed either; AI-loop tests use a scripted `FakeGeminiClient`.
+Runs against `mongomock` (no real database needed) — fast and hermetic. No AI provider key needed either; AI-loop tests use a scripted `FakeAIClient`, and the suite uses its own test-only encryption key.
 
 ## Project layout
 
@@ -86,13 +90,13 @@ app/
 ├── api/        # thin HTTP layer (Flask blueprints) — no business logic
 ├── services/   # all business logic — the single source of truth for
 │               # both the REST paths above and the AI tool-call path below
-├── ai/         # Gemini tool-calling loop, tool declarations, system prompt
+├── ai/         # provider-neutral tool-calling loop, provider adapters + registry, tool schemas, system prompt
 ├── models/     # MongoDB connection + index setup
 ├── utils/      # validation, sanitization, error handling
 ├── static/     # plain CSS/JS, no build step (static/admin/ for the Admin Portal)
 └── templates/  # the chat UI shell (templates/admin/ for the Admin Portal)
 scripts/        # seed_menu.py, seed_faq.py, seed_categories.py, seed_admin_user.py, seed_demo_orders.py
-tests/          # pytest suite (mongomock + FakeGeminiClient — no live creds needed)
+tests/          # pytest suite (mongomock + FakeAIClient — no live creds needed)
 ```
 
 The one rule that matters most throughout: **the REST `[Add]`-button path and the AI tool-call path always call the same `app/services/*` function.** Neither path re-implements business logic independently — see `ARCHITECTURE.md` for why.

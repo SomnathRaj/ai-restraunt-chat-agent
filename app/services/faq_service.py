@@ -1,10 +1,10 @@
 """Restaurant-level FAQ retrieval (PRD Section 19).
 
-Called from both app/api/faq.py (REST) and app/ai/tool_executor.py (Gemini
+Called from both app/api/faq.py (REST) and app/ai/tool_executor.py (AI
 tool calls) -- never re-implement this logic in either caller.
 
 Matching is deliberately simple (token overlap against `question` +
-`keywords`, active entries only) and happens entirely in Flask -- Gemini
+`keywords`, active entries only) and happens entirely in Flask -- the model
 never composes or guesses an answer itself (see ARCHITECTURE.md Section 6).
 """
 
@@ -36,7 +36,7 @@ def search_faq(query: str) -> dict:
     """Return the best-matching FAQ answer, or an explicit no-match signal.
 
     Never fabricates an answer: {"matched": False} means the backend found
-    nothing, and the system prompt instructs Gemini to say so honestly
+    nothing, and the system prompt instructs the model to say so honestly
     rather than guessing (PRD Section 19).
     """
     query_tokens = _tokenize(query)

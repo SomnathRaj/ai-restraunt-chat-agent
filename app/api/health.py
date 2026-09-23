@@ -1,18 +1,19 @@
-"""GET /healthz -- reports whether MongoDB and Gemini are configured/reachable.
+"""GET /healthz -- reports whether MongoDB is reachable and an AI provider is ready.
 
-Lets you verify configuration state at a glance while waiting on credentials
-(ARCHITECTURE.md Section 7): both should read false until MONGODB_URI /
-GEMINI_API_KEY are set in .env, with no code changes needed once they are.
+"ai" is true once an admin has made a provider active in Admin -> AI Settings
+and its stored API key can be decrypted (MULTI_AI_PROVIDER_DESIGN.md Section 4).
+Both read false on a fresh install, with no code changes needed once set up.
 """
 
 from flask import Blueprint, jsonify
 
-from app.ai.gemini_client import is_configured as gemini_is_configured
 from app.models.db import ping as mongo_ping
+from app.services import ai_provider_service
 
 bp = Blueprint("health", __name__)
 
 
 @bp.get("/healthz")
 def healthz():
-    return jsonify({"mongodb": mongo_ping(), "gemini": gemini_is_configured()})
+    mongodb = mongo_ping()
+    return jsonify({"mongodb": mongodb, "ai": mongodb and ai_provider_service.active_provider_ready()})

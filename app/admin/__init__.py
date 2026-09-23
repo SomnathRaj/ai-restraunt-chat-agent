@@ -1,8 +1,8 @@
 """Admin portal blueprint (PRD Section 89 onward).
 
 Server-rendered Flask + Jinja pages under /admin/* -- a separate surface
-from the customer chat, with no Gemini involvement (ARCHITECTURE.md
-Section 12). Every route except /admin/login requires a valid admin
+from the customer chat, with no AI involvement (ARCHITECTURE.md
+Section 12) apart from AI Settings' one-prompt connection test. Every route except /admin/login requires a valid admin
 session; the before_request guard below makes that the default for every
 route registered on this blueprint, rather than something each view has
 to remember to check individually.
@@ -28,4 +28,4 @@ def require_admin_login():
 # Imported for their route-registration side effect (each module does
 # `from app.admin import bp` and defines routes via @bp.route(...)) -- import
 # at the bottom to avoid a circular import with the modules that need `bp`.
-from app.admin import auth, dashboard, faq, menu, orders, sessions  # noqa: E402,F401
+from app.admin import ai_settings, auth, dashboard, faq, menu, orders, sessions  # noqa: E402,F401
