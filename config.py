@@ -8,16 +8,21 @@ load_dotenv()
 class Config:
     """App configuration, read entirely from environment variables.
 
-    MONGODB_URI and GEMINI_API_KEY intentionally have no default pointing at
-    real infrastructure -- the app must boot with both unset (see /healthz).
+    MONGODB_URI intentionally has no default pointing at real infrastructure
+    -- the app must boot with it unset (see /healthz).
+
+    No AI provider's API key or model is read from here: they are entered in
+    the admin portal (AI Settings) and stored encrypted in MongoDB
+    (MULTI_AI_PROVIDER_DESIGN.md Section 4).
     """
 
     MONGODB_URI = os.environ.get("MONGODB_URI") or None
     MONGODB_DATABASE = os.environ.get("MONGODB_DATABASE", "restaurant_bot")
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or None
-    # "-latest" alias so the app follows Google's current Flash release
-    # automatically instead of pinning a version that will be deprecated.
-    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+    # App-level Fernet key that encrypts the provider API keys stored in
+    # MongoDB -- not itself a provider credential. No default: the app still
+    # boots without it, but no API key can be saved or used until it is set
+    # (MULTI_AI_PROVIDER_DESIGN.md Appendix A).
+    AI_CREDENTIALS_ENCRYPTION_KEY = os.environ.get("AI_CREDENTIALS_ENCRYPTION_KEY") or None
 
     RESTAURANT_NAME = os.environ.get("RESTRAUNT_NAME", "Restaurant Name")
     # No default -- a fake/placeholder UPI ID printed on a real invoice would

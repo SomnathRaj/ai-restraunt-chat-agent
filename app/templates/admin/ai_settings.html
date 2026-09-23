@@ -1,0 +1,150 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}AI Settings{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+  <h1>AI Settings</h1>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<p class="{{ 'admin-notice' if category == 'success' else 'admin-error' }}" role="status">{{ message }}</p>
+{% endfor %}
+
+{% if encryption_status != "ok" %}
+<p class="admin-error" role="alert">
+  {% if encryption_status == "missing" %}
+  <strong>AI_CREDENTIALS_ENCRYPTION_KEY is not set on the server.</strong>
+  {% else %}
+  <strong>AI_CREDENTIALS_ENCRYPTION_KEY on the server is not a valid key.</strong>
+  It must be a Fernet key: 44 characters, usually ending in "=". A random hex string won't work.
+  {% endif %}
+  API keys can't be saved or used until whoever runs the server fixes it and restarts the app.
+  Generate a key with <code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code>.
+</p>
+{% endif %}
+
+<p class="admin-hint">
+  {% if active %}
+  The customer chat is using <strong>{{ active.display_name }}</strong> · <code>{{ active.model }}</code>.
+  {% else %}
+  <strong>No AI provider is active</strong>, so the customer chat can't reply yet. Save a provider's API key and model below, then make it active.
+  {% endif %}
+</p>
+
+<section class="admin-provider-section">
+  <h2>Active provider</h2>
+  {% if activate_state.error %}
+  <p class="admin-error" role="alert">{{ activate_state.error }}</p>
+  {% endif %}
+  {% if activate_state.warning %}
+  <p class="admin-warning" role="alert">{{ activate_state.warning }}</p>
+  {% endif %}
+  <form class="admin-form admin-form-wide" method="post" action="{{ url_for('admin.ai_settings_set_active') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <fieldset class="admin-radio-list">
+      <legend>Only one provider can be active at a time.</legend>
+      {% for p in providers %}
+      {% set selected = (activate_state.provider == p.provider) if activate_state.provider else p.active %}
+      <label class="admin-checkbox-label {{ '' if p.configured or p.active else 'admin-disabled' }}">
+        <input type="radio" name="provider" value="{{ p.provider }}"
+               {{ 'checked' if selected else '' }} {{ '' if p.configured or p.active else 'disabled' }} required />
+        <span>{{ p.display_name }}</span>
+        {% if p.active %}<span class="admin-badge admin-badge-active">Active</span>{% endif %}
+        {% if not p.implemented %}
+        <span class="admin-badge admin-badge-muted">Available in a later release</span>
+        {% elif not p.configured %}
+        <span class="admin-badge admin-badge-muted">Not configured</span>
+        {% elif p.last_test_result != 'ok' %}
+        <span class="admin-badge admin-badge-status-pending">Not tested</span>
+        {% endif %}
+      </label>
+      {% endfor %}
+    </fieldset>
+    {% if activate_state.warning %}
+    <label class="admin-checkbox-label">
+      <input type="checkbox" name="confirm_untested" value="1" />
+      Activate anyway
+    </label>
+    {% endif %}
+    <div class="admin-form-actions">
+      <button type="submit" class="admin-button">Make active</button>
+    </div>
+  </form>
+</section>
+
+<section class="admin-provider-section">
+  <h2>Providers</h2>
+  <div class="admin-provider-grid">
+    {% for p in providers %}
+    {% set state = form_state.get(p.provider, {}) %}
+    <div class="admin-provider-card" id="provider-{{ p.provider }}">
+      <div class="admin-provider-card-header">
+        <h3>{{ p.display_name }}</h3>
+        {% if p.active %}<span class="admin-badge admin-badge-active">Active</span>{% endif %}
+        {% if not p.implemented %}
+        <span class="admin-badge admin-badge-muted">Available in a later release</span>
+        {% elif p.key_status == 'unreadable' %}
+        <span class="admin-badge admin-badge-unavailable">Stored key unreadable — re-enter</span>
+        {% elif p.configured %}
+        <span class="admin-badge admin-badge-active">Configured</span>
+        {% else %}
+        <span class="admin-badge admin-badge-muted">Not configured</span>
+        {% endif %}
+      </div>
+
+      {% if not p.implemented %}
+      <p class="admin-hint">Support for {{ p.display_name }} is coming in a later release.</p>
+      {% else %}
+      {% if state.error %}
+      <p class="admin-error" role="alert">{{ state.error }}</p>
+      {% endif %}
+
+      <form class="admin-form admin-form-flat" method="post" action="{{ url_for('admin.ai_settings_save', provider=p.provider) }}" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <label for="api_key-{{ p.provider }}">API key
+          {# Never pre-filled: a saved key is never sent back to the browser. #}
+          <input id="api_key-{{ p.provider }}" type="password" name="api_key" value="" autocomplete="new-password"
+                 placeholder="{% if p.key_status == 'saved' %}•••••••• saved {{ p.key_updated_at|admin_dt }}. Leave blank to keep it{% elif p.key_status == 'unreadable' %}Saved key can't be read. Enter it again{% else %}Paste the API key{% endif %}" />
+        </label>
+
+        <label for="model-{{ p.provider }}">Model
+          <input id="model-{{ p.provider }}" type="text" name="model" required
+                 value="{{ state.model if state.model is defined else (p.model or '') }}"
+                 placeholder="e.g. {{ p.model_example }}" />
+        </label>
+
+        <p class="admin-hint">
+          Last test:
+          {% if p.last_test_result == 'ok' %}passed {{ p.last_tested_at|admin_dt }}
+          {% elif p.last_test_result == 'failed' %}failed {{ p.last_tested_at|admin_dt }}
+          {% else %}never{% endif %}
+        </p>
+
+        {% if state.offer_save_anyway %}
+        <label class="admin-checkbox-label">
+          <input type="checkbox" name="save_anyway" value="1" />
+          Save anyway (customers will use these settings immediately)
+        </label>
+        {% endif %}
+
+        <div class="admin-form-actions">
+          <button type="submit" name="action" value="save" class="admin-button">Save</button>
+          <button type="submit" name="action" value="test" class="admin-button admin-button-muted">Test connection</button>
+        </div>
+      </form>
+      {% endif %}
+
+      {% if p.key_status != 'none' %}
+      <form method="post" action="{{ url_for('admin.ai_settings_remove_key', provider=p.provider) }}" class="admin-inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="admin-button admin-button-danger" {{ 'disabled' if p.active else '' }}
+                title="{{ 'Make another provider active before removing this key' if p.active else 'Remove the saved API key' }}">Remove key</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

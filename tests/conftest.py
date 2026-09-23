@@ -7,16 +7,19 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import create_app
-from app.ai.gemini_client import LLMTurn, ToolCall
+from app.ai.conversation import LLMTurn, ToolCall
 from app.extensions import limiter as _limiter
 from config import Config
+
+TEST_ENCRYPTION_KEY = "i7PzLC-A21LUnz4uXKQVjP58nCNiwHkuQEKR6WmOgdw="
 
 
 class TestConfig(Config):
     # Never actually dialed -- the mongo_client fixture below injects a
     # mongomock client directly into app.extensions before any request runs.
     MONGODB_URI = "mongodb://localhost/test"
-    GEMINI_API_KEY = None
+    # A fixed, test-only Fernet key -- never used outside the suite.
+    AI_CREDENTIALS_ENCRYPTION_KEY = TEST_ENCRYPTION_KEY
     # Admin login/logout tests post plain forms without a real browser
     # session to fetch a token from -- CSRF itself is Flask-WTF's concern,
     # not app logic, so it's off for the suite and left on in real config.
@@ -49,21 +52,32 @@ def client(app):
     return app.test_client()
 
 
-class FakeGeminiClient:
-    """Returns a scripted sequence of LLMTurns -- no network access.
+class FakeAIClient:
+    """Stands in for any provider adapter -- returns a scripted sequence of LLMTurns, no network access.
 
-    Usage: FakeGeminiClient([LLMTurn(function_calls=[...]), LLMTurn(text="...")])
+    Usage: FakeAIClient([LLMTurn(function_calls=[...]), LLMTurn(text="...")])
     """
 
     def __init__(self, turns: list[LLMTurn]):
         self._turns = list(turns)
         self.calls = []
 
-    def generate(self, contents, tools, system_instruction):
-        self.calls.append({"contents": contents, "tools": tools, "system_instruction": system_instruction})
+    def generate(self, history, tools, system_instruction):
+        # Snapshot the list -- ChatAgent keeps appending to the same one.
+        self.calls.append({"history": list(history), "tools": tools, "system_instruction": system_instruction})
         if not self._turns:
-            return LLMTurn(text="(FakeGeminiClient ran out of scripted turns)")
+            return LLMTurn(text="(FakeAIClient ran out of scripted turns)")
         return self._turns.pop(0)
 
 
-__all__ = ["FakeGeminiClient", "LLMTurn", "ToolCall"]
+def activate_provider(provider="gemini", api_key="test-gemini-key", model="gemini-test-model"):
+    """Save working credentials for `provider` and make it the active one. Needs an app context."""
+    from app.services import ai_provider_service
+
+    ai_provider_service.save_credentials(
+        provider, api_key=api_key, model=model, updated_by="usr_test", test_result=ai_provider_service.TEST_OK
+    )
+    ai_provider_service.set_active(provider, updated_by="usr_test")
+
+
+__all__ = ["FakeAIClient", "LLMTurn", "ToolCall", "TEST_ENCRYPTION_KEY", "activate_provider"]

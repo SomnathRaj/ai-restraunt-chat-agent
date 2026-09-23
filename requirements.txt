@@ -2,6 +2,9 @@ Flask
 pymongo
 python-dotenv
 google-genai
+openai
+anthropic
+cryptography
 flask-cors
 Flask-Limiter
 Flask-WTF

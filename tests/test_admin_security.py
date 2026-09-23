@@ -11,12 +11,14 @@ from pathlib import Path
 
 import mongomock
 import pytest
+from flask import g
 from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import limiter as _limiter
 from app.models.db import get_db
 from config import Config
+from tests.conftest import TEST_ENCRYPTION_KEY
 
 ADMIN_EMAIL = "admin@gmail.com"
 ADMIN_PASSWORD = "pass123"
@@ -82,8 +84,10 @@ def test_every_admin_route_redirects_to_login_when_logged_out(client, method, pa
 
 class _CSRFEnabledConfig(Config):
     MONGODB_URI = "mongodb://localhost/test"
-    GEMINI_API_KEY = None
     WTF_CSRF_ENABLED = True
+    # Real key so a rejected AI-settings save is rejected by CSRF, not by
+    # a missing encryption key.
+    AI_CREDENTIALS_ENCRYPTION_KEY = TEST_ENCRYPTION_KEY
 
 
 @pytest.fixture
@@ -170,6 +174,44 @@ def test_delete_action_with_no_csrf_token_is_rejected(csrf_app, csrf_client):
     with csrf_app.app_context():
         db = get_db()
         assert db.menu.find_one({"item_id": "coke"}) is not None
+
+
+def _login_with_csrf(csrf_app, csrf_client):
+    _seed_admin(csrf_app)
+    token = _extract_csrf_token(csrf_client.get("/admin/login").data)
+    csrf_client.post("/admin/login", data={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD, "csrf_token": token})
+
+
+def test_ai_key_save_with_no_csrf_token_is_rejected(csrf_app, csrf_client):
+    _login_with_csrf(csrf_app, csrf_client)
+
+    response = csrf_client.post("/admin/settings/ai/gemini", data={"action": "save", "api_key": "sk-x", "model": "m"})
+
+    assert response.status_code == 400
+    with csrf_app.app_context():
+        assert get_db().ai_providers.find_one({"provider": "gemini"})["api_key_encrypted"] is None
+
+
+def test_ai_key_save_with_the_pages_csrf_token_succeeds(csrf_app, csrf_client, monkeypatch):
+    from app.ai.providers import registry
+
+    monkeypatch.setattr(registry, "check_connection", lambda provider, *, api_key, model: (True, "ok"))
+    _login_with_csrf(csrf_app, csrf_client)
+    # Flask-WTF caches the token on flask.g, and the csrf_app fixture keeps
+    # ONE app context (so one g) open across all these test-client requests
+    # -- unlike a real server, where every request gets a fresh one. Without
+    # this, the login page's cached token is reused after login's
+    # session.clear() and never re-stored in the new session.
+    g.pop("csrf_token", None)
+    token = _extract_csrf_token(csrf_client.get("/admin/settings/ai").data)
+
+    response = csrf_client.post(
+        "/admin/settings/ai/gemini", data={"action": "save", "api_key": "sk-x", "model": "m", "csrf_token": token}
+    )
+
+    assert response.status_code == 302
+    with csrf_app.app_context():
+        assert get_db().ai_providers.find_one({"provider": "gemini"})["api_key_encrypted"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -300,13 +342,11 @@ def test_admin_pages_never_render_the_password_or_hash(admin_logged_in_client):
 
 class _ProductionConfig(Config):
     MONGODB_URI = "mongodb://localhost/test"
-    GEMINI_API_KEY = None
     FLASK_ENV = "production"
 
 
 class _DevelopmentConfig(Config):
     MONGODB_URI = "mongodb://localhost/test"
-    GEMINI_API_KEY = None
     FLASK_ENV = "development"
 
 

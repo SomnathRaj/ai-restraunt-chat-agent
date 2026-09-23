@@ -1,6 +1,6 @@
 """Menu retrieval, search, and availability (PRD Sections 13-18).
 
-Called from both app/api/menu.py (REST) and app/ai/tool_executor.py (Gemini
+Called from both app/api/menu.py (REST) and app/ai/tool_executor.py (AI
 tool calls) -- never re-implement this logic in either caller.
 """
 

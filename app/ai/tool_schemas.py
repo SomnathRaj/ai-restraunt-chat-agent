@@ -1,60 +1,63 @@
-"""Gemini tool declarations for every backend capability in PRD Section 46.
+"""Provider-neutral tool schemas for every backend capability in PRD Section 46.
 
-Declared as plain types.FunctionDeclaration objects (schema only, no bound
-Python callables) so Gemini can only ever *request* a call -- execution
-always goes through app/ai/tool_executor.py's allow-listed dispatch into
-app/services/*, never directly (see ARCHITECTURE.md Section 2).
+Each tool is a plain dict -- name, description, and `parameters` as a
+JSON-Schema object -- with no provider SDK types. Each adapter under
+app/ai/providers/ translates this list into its own provider's tool format
+at call time (MULTI_AI_PROVIDER_DESIGN.md Section 3.1).
+
+Schema only, no bound Python callables, so the model can only ever *request*
+a call -- execution always goes through app/ai/tool_executor.py's
+allow-listed dispatch into app/services/*, never directly (see
+ARCHITECTURE.md Section 2).
 
 set_item_instructions / set_order_notes take ONLY a string parameter --
 structurally incapable of touching price, quantity, or availability. See
 ARCHITECTURE.md Section 5 for why this separation matters.
 """
 
-from google.genai import types
-
-TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
-    types.FunctionDeclaration(
+TOOL_SCHEMAS: list[dict] = [
+    dict(
         name="get_available_menu",
         description="Return all currently active and available menu items, grouped by category.",
-        parameters_json_schema={"type": "object", "properties": {}},
+        parameters={"type": "object", "properties": {}},
     ),
-    types.FunctionDeclaration(
+    dict(
         name="search_menu",
         description="Search available menu items by free-text query (e.g. dish name, category, 'under 300', 'spicy').",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"query": {"type": "string", "description": "The customer's search phrase."}},
             "required": ["query"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="get_menu_item",
         description="Return full details (description, price, availability) for one menu item.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"item_id": {"type": "string"}},
             "required": ["item_id"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="check_item_availability",
         description="Check whether a specific menu item is currently available.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"item_id": {"type": "string"}},
             "required": ["item_id"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="get_alternatives",
         description="Get 2-4 relevant available alternatives for an item that is unavailable or does not exist.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"item_id": {"type": "string"}},
             "required": ["item_id"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="search_faq",
         description=(
             "Search the restaurant's FAQ for a general restaurant-level question (hours, address, "
@@ -63,16 +66,16 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "the returned answer verbatim when matched is true; if matched is false, say you don't "
             "have that information rather than guessing."
         ),
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"query": {"type": "string", "description": "The customer's question, verbatim."}},
             "required": ["query"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="add_to_cart",
         description="Add a menu item to the customer's cart, validated against live availability and price.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {
                 "item_id": {"type": "string"},
@@ -81,28 +84,28 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "required": ["item_id", "quantity"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="remove_from_cart",
         description="Remove an item from the cart entirely.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"item_id": {"type": "string"}},
             "required": ["item_id"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="clear_cart",
         description=(
             "Empty the entire cart in one call -- all items and any whole-order cooking notes. "
             "Use this when the customer wants to cancel/start over their whole order (e.g. 'cancel my order', "
             "'clear my cart', 'start over'). Prefer this over removing items one by one."
         ),
-        parameters_json_schema={"type": "object", "properties": {}},
+        parameters={"type": "object", "properties": {}},
     ),
-    types.FunctionDeclaration(
+    dict(
         name="update_cart_quantity",
         description="Change the quantity of an item already in the cart.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {
                 "item_id": {"type": "string"},
@@ -111,7 +114,7 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "required": ["item_id", "quantity"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="set_item_instructions",
         description=(
             "Attach a free-text cooking/preparation note to ONE cart item (e.g. 'extra spicy', "
@@ -119,7 +122,7 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "extra chargeable add-on (e.g. 'extra chicken', 'extra cheese') -- those are menu/quantity "
             "changes and must use add_to_cart or update_cart_quantity instead."
         ),
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {
                 "item_id": {"type": "string"},
@@ -128,29 +131,29 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "required": ["item_id", "instructions"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="set_order_notes",
         description="Attach a free-text cooking/preparation note to the WHOLE order (not a specific item), e.g. 'no onion or garlic in anything'.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"instructions": {"type": "string"}},
             "required": ["instructions"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="get_cart",
         description="Return the current cart contents including quantities, prices, and any cooking instructions.",
-        parameters_json_schema={"type": "object", "properties": {}},
+        parameters={"type": "object", "properties": {}},
     ),
-    types.FunctionDeclaration(
+    dict(
         name="calculate_order_total",
         description="Return the current cart's subtotal and total, computed from MongoDB prices.",
-        parameters_json_schema={"type": "object", "properties": {}},
+        parameters={"type": "object", "properties": {}},
     ),
-    types.FunctionDeclaration(
+    dict(
         name="validate_customer_information",
         description="Validate a customer name and mobile number before checkout.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
@@ -159,7 +162,7 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "required": ["name", "mobile"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="mark_instructions_prompted",
         description=(
             "Call this once you have asked the customer whether they'd like any cooking/preparation "
@@ -169,15 +172,15 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "If create_order fails with 'instructions_not_prompted', ask about instructions, call this, "
             "then retry create_order."
         ),
-        parameters_json_schema={"type": "object", "properties": {}},
+        parameters={"type": "object", "properties": {}},
     ),
-    types.FunctionDeclaration(
+    dict(
         name="create_order",
         description=(
             "Create the confirmed order. Only call this after the customer has explicitly confirmed "
             "the final order summary (including any cooking instructions) -- never before."
         ),
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {
                 "customer_name": {"type": "string"},
@@ -186,10 +189,10 @@ TOOL_DECLARATIONS: list[types.FunctionDeclaration] = [
             "required": ["customer_name", "mobile"],
         },
     ),
-    types.FunctionDeclaration(
+    dict(
         name="get_order_status",
         description="Look up the real status of a previously placed order by its order ID.",
-        parameters_json_schema={
+        parameters={
             "type": "object",
             "properties": {"order_id": {"type": "string"}},
             "required": ["order_id"],

@@ -9,7 +9,7 @@ over it, same as every other admin page over its service module.
 from flask import render_template, request
 
 from app.admin import bp
-from app.services import dashboard_service
+from app.services import ai_provider_service, dashboard_service
 
 
 @bp.get("/")
@@ -31,4 +31,5 @@ def dashboard():
         customer_count=dashboard_service.get_customer_count(start, end),
         diet_counts=dashboard_service.get_veg_nonveg_counts(),
         ordered_diet_counts=dashboard_service.get_ordered_veg_nonveg_counts(start, end),
+        ai_summary=ai_provider_service.get_active_summary(),
     )

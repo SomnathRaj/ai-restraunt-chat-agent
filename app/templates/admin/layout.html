@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='admin/style.css') }}" />
 </head>
 <body>
-  {% from "admin/_icons.html" import icon_restaurant, icon_nav_dashboard, icon_nav_menu, icon_nav_faq, icon_nav_orders, icon_nav_chat, icon_logout %}
+  {% from "admin/_icons.html" import icon_restaurant, icon_nav_dashboard, icon_nav_menu, icon_nav_faq, icon_nav_orders, icon_nav_chat, icon_nav_ai, icon_logout %}
   <div id="admin-app">
     <aside id="admin-sidebar">
       <div class="admin-brand">
@@ -23,6 +23,7 @@
         <a href="{{ url_for('admin.faq_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.faq_list')) else '' }}">{{ icon_nav_faq() }}<span>FAQ</span></a>
         <a href="{{ url_for('admin.orders_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.orders_list')) else '' }}">{{ icon_nav_orders() }}<span>Orders</span></a>
         <a href="{{ url_for('admin.sessions_list') }}" class="{{ 'active' if request.path.startswith(url_for('admin.sessions_list')) else '' }}">{{ icon_nav_chat() }}<span>Chat Sessions</span></a>
+        <a href="{{ url_for('admin.ai_settings') }}" class="{{ 'active' if request.path.startswith(url_for('admin.ai_settings')) else '' }}">{{ icon_nav_ai() }}<span>AI Settings</span></a>
       </nav>
       <form method="post" action="{{ url_for('admin.logout') }}" class="admin-logout-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />

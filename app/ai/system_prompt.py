@@ -1,4 +1,4 @@
-"""Builds the Gemini system instruction (PRD Sections 8-12, 19, 47-49, 63).
+"""Builds the system instruction, identical for every AI provider (PRD Sections 8-12, 19, 47-49, 63).
 
 Kept as a single function returning a string so app/ai/agent.py doesn't need
 to know how the prompt is assembled -- this is the one place to extend with
