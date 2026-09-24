@@ -2,8 +2,6 @@
 
 A web-based conversational ordering system: customers browse the menu, get recommendations, place orders, and check order status entirely through chat (English, Bengali, Hinglish, Benglish — auto-detected). Flask + MongoDB + an admin-selected AI provider (Google Gemini, OpenAI, Anthropic Claude or OpenRouter), no Docker. Includes a server-rendered Admin Portal for managing the menu, FAQ, and orders, plus a dashboard and chat session viewing.
 
-See [AI_Restaurant_Chat_Ordering_Agent_PRD.md](AI_Restaurant_Chat_Ordering_Agent_PRD.md) for the full product spec, [ARCHITECTURE.md](ARCHITECTURE.md) for the technical design, and [CHECKLIST.md](CHECKLIST.md) for what's implemented and verified so far.
-
 ## Setup
 
 ```bash
@@ -31,6 +29,7 @@ Fill in `.env`:
 | `PORT` | no | Defaults to `5000` |
 | `RESTRAUNT_NAME` | no | Shown in the chat UI header/title |
 | `UPI_ID` | no | Your UPI ID (VPA), e.g. `restaurant@okhdfcbank`. Without it, the invoice's UPI payment QR code is simply omitted (never rendered with a placeholder value) |
+| `GSTINNO` | no | Your GST registration number, printed on invoices. Left off the invoice if unset |
 
 ## Load sample data
 
@@ -69,7 +68,7 @@ A server-rendered admin UI (same Flask app, no separate frontend/build) for runn
 
 Open `http://localhost:<PORT>/admin/login`.
 
-Covers: menu & FAQ management (search, pagination, active/inactive toggle); order management (status/payment updates, editable items & cooking instructions, printable Kitchen Tokens and invoices — with a UPI payment QR code — for a thermal printer); read-only chat session/transcript viewing (the session *list* and its search are structurally restricted to customer name/mobile only — message content is never exposed there, though it is visible on an individual session's own detail page); and a dashboard (sales/order-status/veg-nonveg charts, filterable by day/week/custom date range).
+Covers: menu & FAQ management (search, pagination, active/inactive toggle); order management (status/payment updates, editable items & cooking instructions, printable Kitchen Tokens and invoices — with a UPI payment QR code and GST number — for a thermal printer); read-only chat session/transcript viewing (the session *list* and its search are structurally restricted to customer name/mobile only — message content is never exposed there, though it is visible on an individual session's own detail page); a dashboard (sales/order-status/veg-nonveg charts, filterable by day/week/custom date range); and AI Settings (configure and switch between AI providers — see **Run** above).
 
 ## Test
 

@@ -202,7 +202,7 @@ def list_menu_items_page(query: str = "", page: int = 1, page_size: int = 20) ->
     meta = paginate(total_count, page, page_size)
     cursor = (
         db.menu.find(mongo_filter, _ADMIN_PROJECTION)
-        .sort([("category", 1), ("name", 1)])
+        .sort([("name", 1)])
         .skip(meta["skip"])
         .limit(meta["page_size"])
     )

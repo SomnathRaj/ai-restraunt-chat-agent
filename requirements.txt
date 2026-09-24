@@ -11,3 +11,4 @@ Flask-WTF
 qrcode[pil]
 pytest
 mongomock
+gunicorn
