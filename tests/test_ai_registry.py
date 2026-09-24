@@ -143,3 +143,63 @@ def test_active_openrouter_builds_the_openrouter_adapter(app):
     client = registry.get_active_ai_client()
     assert isinstance(client, OpenRouterProviderClient)
     assert (client._api_key, client._model) == ("sk-or-stored", "openai/gpt-x")
+
+
+def _counting_sdk_constructor(monkeypatch, provider):
+    """Replace the provider's real SDK client class with one that counts constructions.
+
+    Every call on the fake raises that SDK's own connection error, which the
+    adapter maps to AIProviderUnavailable -- so no network is ever touched.
+    """
+    import httpx
+    import httpx2
+    from types import SimpleNamespace
+
+    import anthropic as anthropic_sdk
+    import openai as openai_sdk
+
+    from app.ai.providers import anthropic_provider, gemini, openai_provider
+
+    built = []
+    request = httpx2.Request("POST", "https://example.invalid")
+
+    def fail(**kwargs):
+        raise {
+            "gemini": httpx.ConnectError("offline"),
+            "anthropic": anthropic_sdk.APIConnectionError(request=request),
+        }.get(provider) or openai_sdk.APIConnectionError(request=request)
+
+    def construct(**kwargs):
+        built.append(kwargs.get("api_key"))
+        return SimpleNamespace(
+            models=SimpleNamespace(generate_content=fail),
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fail)),
+            messages=SimpleNamespace(create=fail),
+        )
+
+    target = {"gemini": (gemini.genai, "Client"), "anthropic": (anthropic_provider.anthropic, "Anthropic")}.get(
+        provider, (openai_provider.openai, "OpenAI")
+    )
+    monkeypatch.setattr(*target, construct)
+    return built
+
+
+@pytest.mark.parametrize("provider", ["gemini", "openai", "anthropic", "openrouter"])
+def test_sdk_client_is_built_once_per_message_and_fresh_for_the_next(app, monkeypatch, provider):
+    from app.ai.conversation import UserMessage
+
+    built = _counting_sdk_constructor(monkeypatch, provider)
+    activate_provider(provider, api_key=f"key-{provider}", model="m")
+
+    # One customer message = one adapter; its round-trips share one SDK client.
+    adapter = registry.get_active_ai_client()
+    for _ in range(3):
+        with pytest.raises(AIProviderUnavailable):
+            adapter.generate([UserMessage(text="hi")], tools=[], system_instruction="")
+    assert built == [f"key-{provider}"]
+
+    # The next message resolves a fresh adapter, so a new client (and the
+    # current key) -- an admin switch or key change still applies at once.
+    with pytest.raises(AIProviderUnavailable):
+        registry.get_active_ai_client().generate([UserMessage(text="hi")], tools=[], system_instruction="")
+    assert built == [f"key-{provider}", f"key-{provider}"]

@@ -62,11 +62,19 @@ def _save_session_cart(session_id: str, cart: dict) -> dict:
     return _with_totals(cart)
 
 
-def _find_line(cart: dict, item_id: str) -> dict | None:
-    for line in cart.get("items", []):
-        if line["item_id"] == item_id:
+def _find_line(cart: dict, ref: str) -> dict | None:
+    """The cart line whose item_id is `ref`, else whose name equals `ref` ignoring case.
+
+    Accepting the name lets the AI add an item and set its instructions in
+    the SAME turn -- before it has seen the item_id add_to_cart returns.
+    """
+    ref = (ref or "").strip()
+    lines = cart.get("items", [])
+    for line in lines:
+        if line["item_id"] == ref:
             return line
-    return None
+    named = [line for line in lines if line["name"].casefold() == ref.casefold()]
+    return named[0] if len(named) == 1 else None
 
 
 def get_cart(session_id: str) -> dict:
@@ -75,16 +83,18 @@ def get_cart(session_id: str) -> dict:
 
 
 def add_to_cart(session_id: str, item_id: str, quantity: int) -> dict:
-    """Validate item_id against menu_service, then add/merge into the cart (PRD Section 20, 24).
+    """Validate the item against menu_service, then add/merge into the cart (PRD Section 20, 24).
 
+    `item_id` may also be the item's exact menu name (see menu_service.find_item).
     Price always comes from menu_service (i.e. MongoDB) -- there is no price
     parameter here for a caller to supply (PRD Section 25).
     """
     quantity = _validate_quantity(quantity, allow_zero=False)
 
-    item = menu_service.get_menu_item(item_id)  # raises AppError 404 if missing/inactive
+    item = menu_service.resolve_item(item_id)  # raises AppError 404 (with suggestions) if missing/inactive
     if not item.get("availability"):
         raise AppError("item_unavailable", f"{item['name']} is currently unavailable.")
+    item_id = item["item_id"]
 
     cart = _get_session_cart(session_id)
     line = _find_line(cart, item_id)
@@ -107,9 +117,11 @@ def add_to_cart(session_id: str, item_id: str, quantity: int) -> dict:
 
 
 def remove_from_cart(session_id: str, item_id: str) -> dict:
-    """Remove an item from the cart (PRD Section 23)."""
+    """Remove an item (by item_id or exact name) from the cart (PRD Section 23). No-op if it isn't there."""
     cart = _get_session_cart(session_id)
-    cart["items"] = [line for line in cart.get("items", []) if line["item_id"] != item_id]
+    line = _find_line(cart, item_id)
+    if line is not None:
+        cart["items"] = [other for other in cart["items"] if other is not line]
     return _save_session_cart(session_id, cart)
 
 

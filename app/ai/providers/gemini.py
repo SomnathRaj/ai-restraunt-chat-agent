@@ -117,7 +117,13 @@ class GeminiProviderClient:
             raise AIProviderNotConfigured("no Gemini API key")
         if not self._model:
             raise AIProviderNotConfigured("no Gemini model")
-        client = self._client or genai.Client(api_key=self._api_key)
+        # Built once per adapter, then reused, so every round-trip of one
+        # message's tool loop shares a single HTTPS connection. The
+        # registry builds a fresh adapter per customer message, so
+        # nothing (including the key) outlives that message.
+        if self._client is None:
+            self._client = genai.Client(api_key=self._api_key)
+        client = self._client
 
         try:
             response = client.models.generate_content(

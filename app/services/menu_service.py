@@ -69,30 +69,72 @@ def get_menu_item(item_id: str) -> dict:
     return doc
 
 
-def check_item_availability(item_id: str) -> bool:
-    """Return whether item_id is currently active and available (PRD Section 14).
+def find_item(ref: str) -> dict | None:
+    """Active item whose item_id is `ref`, else whose name equals `ref` ignoring case. None if neither.
 
-    An unknown item_id is treated as unavailable rather than raising --
+    Lets the AI name an item exactly as the menu shows it ("Chicken Wrap")
+    instead of first spending a whole search_menu round-trip to learn its
+    item_id. Deliberately exact, never fuzzy: a near-miss must not quietly
+    pick a different dish. A name shared by more than one active item
+    resolves to nothing rather than a guess. Not filtered by availability,
+    same as get_menu_item -- callers decide what "unavailable" means.
+    """
+    ref = (ref or "").strip()
+    if not ref:
+        return None
+    db = get_db()
+    doc = db.menu.find_one({"item_id": ref, "active": True}, _PUBLIC_PROJECTION)
+    if doc is not None:
+        return doc
+    matches = list(
+        db.menu.find({"active": True, "name": {"$regex": f"^{re.escape(ref)}$", "$options": "i"}}, _PUBLIC_PROJECTION).limit(2)
+    )
+    return matches[0] if len(matches) == 1 else None
+
+
+def resolve_item(ref: str) -> dict:
+    """Like find_item, but raises item_not_found -- listing close matches, so the
+    model can pick one in its next call instead of running a separate search."""
+    doc = find_item(ref)
+    if doc is not None:
+        return doc
+    suggestions = search_menu(ref)[:3]
+    hint = (
+        " Did you mean: " + ", ".join(f"{item['name']} (item_id {item['item_id']})" for item in suggestions) + "?"
+        if suggestions
+        else ""
+    )
+    raise AppError("item_not_found", f"No menu item found matching '{(ref or '').strip()}'.{hint}", 404)
+
+
+def check_item_availability(item_id: str) -> bool:
+    """Return whether an item (by item_id or exact name) is currently active and available (PRD Section 14).
+
+    An unknown item is treated as unavailable rather than raising --
     this is a boolean predicate, not a lookup.
     """
-    db = get_db()
-    doc = db.menu.find_one({"item_id": item_id, "active": True}, {"availability": 1})
+    doc = find_item(item_id)
     return bool(doc and doc.get("availability"))
 
 
 def get_alternatives(item_id: str, limit: int = 4) -> list[dict]:
     """Return relevant available alternatives for an unavailable/missing item (PRD Section 18).
 
-    Ranked by: same category, then tag overlap, then price closeness --
-    matching the ranking signals PRD Section 18 lists. Never invents
-    alternatives; only returns active + available menu items.
+    `item_id` may also be the exact menu name (see find_item). Ranked by:
+    same veg/non-veg as the requested item first -- a veg customer must
+    never be steered to a meat dish ahead of veg ones -- then the PRD
+    Section 18 signals: same category, tag overlap, price closeness.
+    Never invents alternatives; only returns active + available menu items.
     """
     db = get_db()
-    target = db.menu.find_one({"item_id": item_id}, {"category": 1, "tags": 1, "price": 1})
+    fields = {"item_id": 1, "category": 1, "tags": 1, "price": 1, "is_veg": 1}
+    # find_item covers names; the plain lookup keeps inactive items rankable, as before.
+    target = find_item(item_id) or db.menu.find_one({"item_id": item_id}, fields)
+    exclude = target["item_id"] if target else item_id
 
     candidates = list(
         db.menu.find(
-            {"active": True, "availability": True, "item_id": {"$ne": item_id}},
+            {"active": True, "availability": True, "item_id": {"$ne": exclude}},
             _PUBLIC_PROJECTION,
         )
     )
@@ -100,15 +142,18 @@ def get_alternatives(item_id: str, limit: int = 4) -> list[dict]:
     if target is None:
         return candidates[:limit]
 
+    target_diet = target.get("is_veg")
     target_category = target.get("category")
     target_tags = set(target.get("tags") or [])
     target_price = target.get("price")
 
     def _rank(candidate: dict) -> tuple:
+        # Unknown diet on either side (older data) is never penalised.
+        other_diet = 1 if target_diet is not None and candidate.get("is_veg") not in (None, target_diet) else 0
         different_category = 0 if candidate.get("category") == target_category else 1
         tag_overlap = len(target_tags & set(candidate.get("tags") or []))
         price_diff = abs((candidate.get("price") or 0) - (target_price or 0))
-        return (different_category, -tag_overlap, price_diff)
+        return (other_diet, different_category, -tag_overlap, price_diff)
 
     candidates.sort(key=_rank)
     return candidates[:limit]
