@@ -216,3 +216,46 @@ def test_chat_agent_carries_turn_level_provider_metadata_onto_the_assistant_mess
         ChatAgent(client=fake).handle_message("s1", "cart")
     assistant = next(m for m in fake.calls[1]["history"] if isinstance(m, AssistantMessage))
     assert assistant.provider_metadata is metadata
+
+
+def test_add_and_instructions_by_name_in_one_turn_take_one_round_trip(seeded_menu):
+    # The model can't know the item_id before add_to_cart returns, so both
+    # calls name the dish -- and both succeed within a single round-trip.
+    fake = FakeAIClient(
+        [
+            LLMTurn(
+                function_calls=[
+                    ToolCall(name="add_to_cart", args={"item_id": "Coke", "quantity": 2}),
+                    ToolCall(name="set_item_instructions", args={"item_id": "Coke", "instructions": "less ice"}),
+                ]
+            ),
+            LLMTurn(text="Added 2 Cokes with less ice!"),
+        ]
+    )
+    with seeded_menu.app_context():
+        ChatAgent(client=fake).handle_message("s1", "2 cokes, less ice")
+        cart = cart_service.get_cart("s1")
+    assert cart["items"] == [{"item_id": "coke", "name": "Coke", "price": 60, "quantity": 2, "instructions": "less ice"}]
+    assert len(fake.calls) == 2  # one tool round-trip + the reply
+
+
+def test_get_menu_item_tool_accepts_a_name_or_an_id(seeded_menu):
+    with seeded_menu.app_context():
+        assert ToolExecutor().execute("get_menu_item", {"item_id": "coke"}, "s1")["name"] == "Coke"
+        assert ToolExecutor().execute("get_menu_item", {"item_id": "Coke"}, "s1")["item_id"] == "coke"
+        missing = ToolExecutor().execute("get_menu_item", {"item_id": "Cola"}, "s1")
+    assert missing["error"] == "item_not_found"
+
+
+def test_system_prompt_ends_with_the_language_check_and_has_no_bengali_reply_template():
+    # Live-tested (2026-09-24): gpt-4o-mini copied a Bengali-script reply
+    # example verbatim for English messages. The example is gone, and the
+    # language check sits last, where small models weight it most.
+    import re
+
+    from app.ai.system_prompt import build_system_prompt
+
+    prompt = build_system_prompt()
+    assert prompt.rstrip().endswith("only if that message is Benglish/Hinglish.")
+    style_examples = prompt.split("RESPONSE STYLE EXAMPLES", 1)[1].split("These examples only show", 1)[0]
+    assert not re.search(r"[ঀ-৿]", style_examples)
