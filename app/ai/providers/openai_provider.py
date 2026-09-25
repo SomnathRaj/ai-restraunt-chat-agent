@@ -161,7 +161,13 @@ class OpenAIProviderClient:
             raise AIProviderNotConfigured(f"no {self.LABEL} API key")
         if not self._model:
             raise AIProviderNotConfigured(f"no {self.LABEL} model")
-        client = self._client or self._create_client()
+        # Built once per adapter, then reused, so every round-trip of one
+        # message's tool loop shares a single HTTPS connection. The
+        # registry builds a fresh adapter per customer message, so
+        # nothing (including the key) outlives that message.
+        if self._client is None:
+            self._client = self._create_client()
+        client = self._client
 
         request = {"model": self._model, "messages": _to_messages(history, system_instruction)}
         if tools:

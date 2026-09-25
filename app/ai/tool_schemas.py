@@ -15,6 +15,18 @@ structurally incapable of touching price, quantity, or availability. See
 ARCHITECTURE.md Section 5 for why this separation matters.
 """
 
+# Accepting the exact name saves a whole search_menu round-trip per item
+# (menu_service.find_item / cart_service._find_line); still exact-only.
+_ITEM_REF = {
+    "type": "string",
+    "description": (
+        "The item's item_id, or its exact menu name as shown to the customer (e.g. 'Chicken Wrap'). "
+        "When the customer names a dish, pass the name directly -- no need to call search_menu first."
+    ),
+}
+
+_RETURNS_CART = " Returns the full updated cart, including subtotal and total -- no need to call get_cart afterwards."
+
 TOOL_SCHEMAS: list[dict] = [
     dict(
         name="get_available_menu",
@@ -35,7 +47,7 @@ TOOL_SCHEMAS: list[dict] = [
         description="Return full details (description, price, availability) for one menu item.",
         parameters={
             "type": "object",
-            "properties": {"item_id": {"type": "string"}},
+            "properties": {"item_id": _ITEM_REF},
             "required": ["item_id"],
         },
     ),
@@ -44,7 +56,7 @@ TOOL_SCHEMAS: list[dict] = [
         description="Check whether a specific menu item is currently available.",
         parameters={
             "type": "object",
-            "properties": {"item_id": {"type": "string"}},
+            "properties": {"item_id": _ITEM_REF},
             "required": ["item_id"],
         },
     ),
@@ -74,11 +86,11 @@ TOOL_SCHEMAS: list[dict] = [
     ),
     dict(
         name="add_to_cart",
-        description="Add a menu item to the customer's cart, validated against live availability and price.",
+        description="Add a menu item to the customer's cart, validated against live availability and price." + _RETURNS_CART,
         parameters={
             "type": "object",
             "properties": {
-                "item_id": {"type": "string"},
+                "item_id": _ITEM_REF,
                 "quantity": {"type": "integer", "minimum": 1},
             },
             "required": ["item_id", "quantity"],
@@ -86,10 +98,10 @@ TOOL_SCHEMAS: list[dict] = [
     ),
     dict(
         name="remove_from_cart",
-        description="Remove an item from the cart entirely.",
+        description="Remove an item from the cart entirely." + _RETURNS_CART,
         parameters={
             "type": "object",
-            "properties": {"item_id": {"type": "string"}},
+            "properties": {"item_id": _ITEM_REF},
             "required": ["item_id"],
         },
     ),
@@ -104,11 +116,11 @@ TOOL_SCHEMAS: list[dict] = [
     ),
     dict(
         name="update_cart_quantity",
-        description="Change the quantity of an item already in the cart.",
+        description="Change the quantity of an item already in the cart." + _RETURNS_CART,
         parameters={
             "type": "object",
             "properties": {
-                "item_id": {"type": "string"},
+                "item_id": _ITEM_REF,
                 "quantity": {"type": "integer", "minimum": 0},
             },
             "required": ["item_id", "quantity"],
@@ -120,12 +132,14 @@ TOOL_SCHEMAS: list[dict] = [
             "Attach a free-text cooking/preparation note to ONE cart item (e.g. 'extra spicy', "
             "'no onion', 'more gravy'). Never use this for requests implying more product or an "
             "extra chargeable add-on (e.g. 'extra chicken', 'extra cheese') -- those are menu/quantity "
-            "changes and must use add_to_cart or update_cart_quantity instead."
-        ),
+            "changes and must use add_to_cart or update_cart_quantity instead. To add an item and its "
+            "note together, call add_to_cart and this in the same turn, add_to_cart first."
+        )
+        + _RETURNS_CART,
         parameters={
             "type": "object",
             "properties": {
-                "item_id": {"type": "string"},
+                "item_id": _ITEM_REF,
                 "instructions": {"type": "string", "description": "Verbatim preparation note, e.g. 'extra spicy, no onion'."},
             },
             "required": ["item_id", "instructions"],

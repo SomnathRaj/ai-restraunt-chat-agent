@@ -24,7 +24,8 @@ log = logging.getLogger(__name__)
 _HANDLERS = {
     "get_available_menu": lambda session_id, **args: menu_service.get_available_menu(),
     "search_menu": lambda session_id, **args: menu_service.search_menu(args["query"]),
-    "get_menu_item": lambda session_id, **args: menu_service.get_menu_item(args["item_id"]),
+    # resolve_item, not get_menu_item: the AI may pass the exact menu name.
+    "get_menu_item": lambda session_id, **args: menu_service.resolve_item(args["item_id"]),
     "check_item_availability": lambda session_id, **args: menu_service.check_item_availability(args["item_id"]),
     "get_alternatives": lambda session_id, **args: menu_service.get_alternatives(args["item_id"]),
     "search_faq": lambda session_id, **args: faq_service.search_faq(args["query"]),

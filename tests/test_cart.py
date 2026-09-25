@@ -2,6 +2,7 @@ import pytest
 
 from app.models.db import get_db
 from app.services import cart_service
+from app.utils.errors import AppError
 
 
 @pytest.fixture
@@ -194,3 +195,48 @@ def test_carts_are_isolated_per_session(seeded_menu):
         cart_service.add_to_cart("session-a", "coke", 1)
         cart_b = cart_service.get_cart("session-b")
     assert cart_b["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Items may be referred to by exact menu name (fewer AI round-trips)
+# ---------------------------------------------------------------------------
+
+
+def test_add_to_cart_by_name_stores_the_real_item_id_and_database_price(seeded_menu):
+    with seeded_menu.app_context():
+        cart = cart_service.add_to_cart("s1", "chicken biryani", 2)
+    assert cart["items"] == [
+        {"item_id": "chicken-biryani", "name": "Chicken Biryani", "price": 280, "quantity": 2, "instructions": None}
+    ]
+    assert cart["total"] == 560
+
+
+def test_add_to_cart_by_name_merges_with_the_same_item_added_by_id(seeded_menu):
+    with seeded_menu.app_context():
+        cart_service.add_to_cart("s1", "coke", 1)
+        cart = cart_service.add_to_cart("s1", "Coke", 2)
+    assert [(line["item_id"], line["quantity"]) for line in cart["items"]] == [("coke", 3)]
+
+
+def test_add_to_cart_by_name_still_rejects_unavailable_items(seeded_menu):
+    with seeded_menu.app_context():
+        with pytest.raises(AppError) as info:
+            cart_service.add_to_cart("s1", "Chicken Burger", 1)
+    assert info.value.code == "item_unavailable"
+
+
+def test_cart_line_operations_accept_the_name(seeded_menu):
+    with seeded_menu.app_context():
+        cart_service.add_to_cart("s1", "coke", 1)
+        cart_service.add_to_cart("s1", "chicken-biryani", 1)
+        cart_service.set_item_instructions("s1", "Chicken Biryani", "extra spicy")
+        cart_service.update_cart_quantity("s1", "COKE", 3)
+        cart = cart_service.remove_from_cart("s1", "chicken biryani")
+    assert cart["items"] == [{"item_id": "coke", "name": "Coke", "price": 60, "quantity": 3, "instructions": None}]
+
+
+def test_remove_from_cart_by_unknown_name_is_still_a_no_op(seeded_menu):
+    with seeded_menu.app_context():
+        cart_service.add_to_cart("s1", "coke", 1)
+        cart = cart_service.remove_from_cart("s1", "Pepsi")
+    assert len(cart["items"]) == 1
