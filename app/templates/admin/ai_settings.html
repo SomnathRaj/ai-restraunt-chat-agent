@@ -24,9 +24,9 @@
 </p>
 {% endif %}
 
-<p class="admin-hint">
+<p class="{{ 'admin-ai-status' if active else 'admin-hint' }}">
   {% if active %}
-  The customer chat is using <strong>{{ active.display_name }}</strong> · <code>{{ active.model }}</code>.
+  The customer chat is using {{ active.display_name }} · <code>{{ active.model }}</code>.
   {% else %}
   <strong>No AI provider is active</strong>, so the customer chat can't reply yet. Save a provider's API key and model below, then make it active.
   {% endif %}

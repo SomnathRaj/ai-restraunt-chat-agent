@@ -72,16 +72,28 @@
     });
   }
 
-  // Small, safe subset of Markdown (bold + bullet lists) rendered directly
-  // to DOM nodes -- never through innerHTML/raw HTML. AI replies commonly
-  // use **bold** and "- item" lists (see system_prompt.py's own examples),
-  // so this reads far better than showing literal asterisks in a premium UI.
+  // Small, safe subset of Markdown (headings + bold + bullet lists) rendered
+  // directly to DOM nodes -- never through innerHTML/raw HTML. AI replies
+  // commonly use "### Heading", **bold** and "- item" lists (see
+  // system_prompt.py's own examples), so this reads far better than showing
+  // literal "###"/asterisks in a premium UI.
   function renderFormattedText(container, text) {
     const lines = text.split("\n");
     let currentList = null;
 
     lines.forEach((rawLine) => {
       const line = rawLine.trim();
+      const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+
+      if (headingMatch) {
+        currentList = null;
+        const heading = document.createElement("p");
+        heading.className = "message-heading";
+        renderInline(heading, headingMatch[1]);
+        container.appendChild(heading);
+        return;
+      }
+
       const bulletMatch = line.match(/^[-*]\s+(.*)$/);
 
       if (bulletMatch) {

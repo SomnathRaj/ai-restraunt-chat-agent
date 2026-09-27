@@ -979,6 +979,23 @@ body {
   margin: 0 0 1rem;
 }
 
+.admin-ai-status {
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.4rem;
+  margin: 0 0 1rem;
+  background: #eaf1f9;
+  border: 1px solid var(--admin-accent);
+  color: var(--admin-accent);
+  font-weight: 600;
+}
+
+.admin-ai-status code {
+  background: rgba(63, 111, 168, 0.12);
+  color: inherit;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
 .admin-badge-muted {
   background: #eef1f4;
   color: var(--admin-muted);

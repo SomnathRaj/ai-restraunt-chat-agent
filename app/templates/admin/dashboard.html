@@ -9,7 +9,7 @@
 
 {# Provider + model only -- never the key (MULTI_AI_PROVIDER_DESIGN.md Section 5). #}
 {% if ai_summary %}
-<p class="admin-hint">AI: {{ ai_summary.display_name }} · <code>{{ ai_summary.model }}</code></p>
+<p class="admin-ai-status">The customer chat is using {{ ai_summary.display_name }} · <code>{{ ai_summary.model }}</code>.</p>
 {% else %}
 <p class="admin-warning">AI: no provider is active, so the customer chat can't reply. <a href="{{ url_for('admin.ai_settings') }}">Set one up in AI Settings</a>.</p>
 {% endif %}
