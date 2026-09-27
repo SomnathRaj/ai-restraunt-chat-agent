@@ -247,7 +247,7 @@ def test_get_menu_item_tool_accepts_a_name_or_an_id(seeded_menu):
     assert missing["error"] == "item_not_found"
 
 
-def test_system_prompt_ends_with_the_language_check_and_has_no_bengali_reply_template():
+def test_system_prompt_ends_with_the_language_check_and_has_no_native_script_reply_template():
     # Live-tested (2026-09-24): gpt-4o-mini copied a Bengali-script reply
     # example verbatim for English messages. The example is gone, and the
     # language check sits last, where small models weight it most.
@@ -259,3 +259,13 @@ def test_system_prompt_ends_with_the_language_check_and_has_no_bengali_reply_tem
     assert prompt.rstrip().endswith("only if that message is Benglish/Hinglish.")
     style_examples = prompt.split("RESPONSE STYLE EXAMPLES", 1)[1].split("These examples only show", 1)[0]
     assert not re.search(r"[ঀ-৿]", style_examples)
+    assert not re.search(r"[\u0900-\u097F]", style_examples)
+
+
+def test_system_prompt_lists_hindi_as_a_supported_style():
+    from app.ai.system_prompt import build_system_prompt
+
+    prompt = build_system_prompt()
+    assert "Hindi (Devanagari script)" in prompt
+    final_check = prompt.split("FINAL CHECK BEFORE EVERY REPLY", 1)[1]
+    assert "Devanagari" in final_check

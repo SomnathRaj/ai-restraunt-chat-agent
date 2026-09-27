@@ -4,7 +4,7 @@
 Session doc shape (chat_sessions collection):
     {
         "session_id": str,
-        "language": "english" | "bengali" | "hinglish" | "benglish" | "mixed",
+        "language": "english" | "hindi" | "bengali" | "hinglish" | "benglish" | "mixed",
         "cart": {...},                       # see cart_service module docstring
         "customer_name": str | None,
         "mobile": str | None,

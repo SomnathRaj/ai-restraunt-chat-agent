@@ -1,6 +1,6 @@
 # AI Restaurant Chat Ordering Agent
 
-A web-based conversational ordering system: customers browse the menu, get recommendations, place orders, and check order status entirely through chat (English, Bengali, Hinglish, Benglish — auto-detected). Flask + MongoDB + an admin-selected AI provider (Google Gemini, OpenAI, Anthropic Claude or OpenRouter), no Docker. Includes a server-rendered Admin Portal for managing the menu, FAQ, and orders, plus a dashboard and chat session viewing.
+A web-based conversational ordering system: customers browse the menu, get recommendations, place orders, and check order status entirely through chat (English, Hindi, Bengali, Hinglish, Benglish — auto-detected). Flask + MongoDB + an admin-selected AI provider (Google Gemini, OpenAI, Anthropic Claude or OpenRouter), no Docker. Includes a server-rendered Admin Portal for managing the menu, FAQ, and orders, plus a dashboard and chat session viewing.
 
 ## Setup
 
